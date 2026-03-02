@@ -6,9 +6,6 @@ import { OllamaPanel } from './components/OllamaPanel';
 
 type Tab = 'dashboard' | 'settings';
 
-// Helm chart 仓库地址（GitHub raw），提供 static-index.yaml 索引
-const CHART_REPO_URL = 'https://raw.githubusercontent.com/apepkuss/ClawRun/main/charts';
-
 export default function App() {
   const { status, loading, refresh } = useAppStatus();
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -36,7 +33,7 @@ export default function App() {
     const res = await fetch(`/api/apps/${appName}/install`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ repoUrl: CHART_REPO_URL }),
+      body: JSON.stringify({}),
     });
     if (!res.ok) {
       alert(`${appName} 安装请求失败，请查看控制台`);

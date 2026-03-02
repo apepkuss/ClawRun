@@ -20,10 +20,14 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#charts-v}" >> "$GITHUB_OUTPUT"
 
       - name: Package openclaw OAC
-        run: tar czf charts/openclaw-${{ steps.version.outputs.version }}.tgz -C openclaw .
+        run: |
+          cp -r openclaw /tmp/openclaw
+          tar czf charts/openclaw-${{ steps.version.outputs.version }}.tgz -C /tmp openclaw
 
       - name: Package ollama-cpu OAC
-        run: tar czf charts/ollama-cpu-${{ steps.version.outputs.version }}.tgz -C ollama-cpu/oac .
+        run: |
+          cp -r ollama-cpu/oac /tmp/ollama-cpu
+          tar czf charts/ollama-cpu-${{ steps.version.outputs.version }}.tgz -C /tmp ollama-cpu
 
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2

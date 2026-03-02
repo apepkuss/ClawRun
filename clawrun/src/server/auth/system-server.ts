@@ -76,3 +76,49 @@ export async function callSystemServer(
 
   return res.json();
 }
+
+// 直接调用 app-service（绕过 BFL 和 system-server RBAC 代理）
+// 认证：X-Bfl-User 头（Olares 用户名），并转发用户 LLDAP JWT（x-access-token）
+export async function callAppService(
+  bflUser: string,
+  path: string,
+  method: string,
+  body?: Record<string, unknown>,
+  accessToken?: string | null
+): Promise<unknown> {
+  if (!OS_SYSTEM_SERVER) {
+    throw new Error('Missing OS_SYSTEM_SERVER env var');
+  }
+
+  const appServiceServer = OS_SYSTEM_SERVER.replace('system-server', 'app-service');
+  const url = `http://${appServiceServer}:28080${path}`;
+  console.log('[app-service]', method, url, '| hasToken:', !!accessToken);
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Bfl-User': bflUser,
+  };
+
+  // Forward the user's LLDAP JWT so app-service can validate the caller
+  if (accessToken) {
+    headers['X-Authorization'] = accessToken;
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  console.log('[app-service] sending headers:', Object.keys(headers).join(', '));
+
+  const res = await fetch(url, {
+    method,
+    headers,
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+
+  const text = await res.text();
+  console.log('[app-service] status:', res.status, 'body:', text);
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`app-service non-JSON response (${res.status}): ${text}`);
+  }
+}

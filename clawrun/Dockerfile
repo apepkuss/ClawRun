@@ -15,11 +15,19 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
+RUN apk add --no-cache iptables iptables-legacy
+
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev
 
 COPY --from=builder /app/dist ./dist
 
+# Bundle OAC chart tarballs so ClawRun can serve them over HTTP
+COPY charts/ ./charts/
+
+COPY entrypoint.sh ./
+RUN chmod +x entrypoint.sh
+
 EXPOSE 3000
 
-CMD ["node", "dist/server/index.js"]
+ENTRYPOINT ["./entrypoint.sh"]

@@ -19,12 +19,19 @@ entrances:
     icon: https://file.bttcdn.com/appstore/default/defaulticon.webp
     authLevel: private
     openMethod: window
+  - name: clawrun-charts
+    port: 3001
+    host: clawrun-svc
+    title: ClawRun Charts
+    authLevel: public
+    openMethod: default
+    invisible: true
 
 permission:
   appData: true
   appCache: true
   sysData:
-    - group: service.appstore
+    - group: service.bfl
       dataType: app
       version: v1
       ops:

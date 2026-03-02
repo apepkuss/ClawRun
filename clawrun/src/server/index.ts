@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import appsRouter from './routes/apps';
 import openclawRouter from './routes/openclaw';
@@ -7,6 +8,7 @@ import statusRouter from './routes/status';
 
 const app = express();
 const PORT = process.env.PORT ?? 3000;
+const CHART_PORT = 3001;
 
 app.use(express.json());
 
@@ -25,4 +27,17 @@ app.get('*', (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`ClawRun server listening on port ${PORT}`);
+});
+
+// Dedicated chart server on port 3001 with authLevel:public (no Envoy JWT check)
+// app-service downloads chart tarballs from this endpoint during install
+const chartsDir = path.join(__dirname, '../../charts');
+const chartApp = express();
+chartApp.use((req, _res, next) => {
+  console.log(`[chart-server] ${req.method} ${req.url}`);
+  next();
+});
+chartApp.use(express.static(chartsDir));
+http.createServer(chartApp).listen(CHART_PORT, () => {
+  console.log(`ClawRun chart server listening on port ${CHART_PORT}`);
 });

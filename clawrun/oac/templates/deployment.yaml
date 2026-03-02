@@ -16,14 +16,23 @@ spec:
     metadata:
       labels:
         app: clawrun
+      annotations:
+        # Exclude port 3001 from Envoy iptables interception so app-service
+        # can download chart tarballs without JWT auth check
+        traffic.sidecar.istio.io/excludeInboundPorts: "3001"
     spec:
       containers:
         - name: clawrun
-          image: "apepkuss/clawrun:0.1.0"
+          image: "apepkuss/clawrun:latest"
           imagePullPolicy: Always
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
           ports:
             - containerPort: 3000
               name: web
+            - containerPort: 3001
+              name: charts
           env:
             - name: PORT
               value: "3000"
@@ -32,9 +41,9 @@ spec:
             - name: OS_SYSTEM_SERVER
               value: "system-server.user-system-{{ if .Values.bfl }}{{ .Values.bfl.username }}{{ end }}"
             - name: OS_APP_KEY
-              value: "{{ if .Values.os }}{{ .Values.os.appKey }}{{ end }}"
+              value: "{{ if .Values.bfl }}{{ .Values.bfl.appKey }}{{ end }}"
             - name: OS_APP_SECRET
-              value: "{{ if .Values.os }}{{ .Values.os.appSecret }}{{ end }}"
+              value: "{{ if .Values.bfl }}{{ .Values.bfl.appSecret }}{{ end }}"
           resources:
             requests:
               cpu: 100m
