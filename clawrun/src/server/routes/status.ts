@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { checkHealth as openclawHealth, getConnection } from '../services/openclaw';
-import { checkStatus as ollamaStatus, getEndpoint } from '../services/ollama';
+import { checkStatus as ollamaStatus, getConnection as getOllamaConnection } from '../services/ollama';
 
 const router = Router();
 
@@ -12,6 +12,7 @@ router.get('/', async (_req, res) => {
   ]);
 
   const conn = getConnection();
+  const ollamaConn = getOllamaConnection();
   res.json({
     openclaw: {
       healthy: openclawHealthy,
@@ -20,7 +21,8 @@ router.get('/', async (_req, res) => {
     },
     ollama: {
       healthy: ollamaHealthy,
-      endpoint: getEndpoint() || null,
+      endpoint: ollamaConn.endpoint || null,
+      uiUrl: ollamaConn.uiUrl || null,
     },
   });
 });

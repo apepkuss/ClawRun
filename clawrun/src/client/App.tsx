@@ -23,7 +23,7 @@ export default function App() {
     await fetch('/api/ollama/connect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ endpoint: values.endpoint }),
+      body: JSON.stringify({ endpoint: values.endpoint, uiUrl: values.uiUrl }),
     });
     refresh();
   }
@@ -131,10 +131,16 @@ export default function App() {
             </div>
             <div className="bg-white border rounded-xl p-5 shadow-sm">
               <ConnectPanel
+                key={`ollama-${status?.ollama.endpoint ?? ''}`}
                 label="Ollama 连接"
                 fields={[
-                  { key: 'endpoint', label: '外部端点 URL', placeholder: 'https://xxxx.apepkuss.olares.cn' },
+                  { key: 'endpoint', label: '服务端点（内网）', placeholder: 'http://ollama-cpu-svc.ollama-cpu-apepkuss:11434' },
+                  { key: 'uiUrl', label: 'Web UI 地址（外网）', placeholder: 'https://xxxx.apepkuss.olares.cn' },
                 ]}
+                initialValues={{
+                  endpoint: status?.ollama.endpoint ?? '',
+                  uiUrl: status?.ollama.uiUrl ?? '',
+                }}
                 onConnect={connectOllama}
               />
             </div>

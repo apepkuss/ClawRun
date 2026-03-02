@@ -3,14 +3,14 @@ import * as ollama from '../services/ollama';
 
 const router = Router();
 
-// POST /api/ollama/connect   body: { endpoint }
+// POST /api/ollama/connect   body: { endpoint, uiUrl? }
 router.post('/connect', (req, res) => {
-  const { endpoint } = req.body as { endpoint: string };
+  const { endpoint, uiUrl } = req.body as { endpoint: string; uiUrl?: string };
   if (!endpoint) {
     res.status(400).json({ error: 'endpoint is required' });
     return;
   }
-  ollama.setEndpoint(endpoint);
+  ollama.setConnection(endpoint, uiUrl);
   res.json({ ok: true });
 });
 
