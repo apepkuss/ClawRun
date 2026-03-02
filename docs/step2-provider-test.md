@@ -28,6 +28,11 @@
 - Ollama 已从 Market 安装（Shared App）
 - Ollama 中已下载至少一个模型（如 `llama3.2`、`qwen2.5`）
 
+> **实测说明：本步骤已跳过。**
+> Olares Market 中的 Ollama 安装时检查 GPU 资源，当前集群无 GPU，安装失败。
+> 步骤 1 已验证 OpenClaw 可通过云端 LLM（ZAI / OpenAI）正常工作，核心部署流程通过。
+> Ollama 集成验证待有 GPU 资源时补充，或在步骤 3 OAC 打包完成后通过 Studio 部署 CPU-only Ollama 镜像进行替代验证。
+
 ## 背景知识
 
 ### Olares 的网络隔离

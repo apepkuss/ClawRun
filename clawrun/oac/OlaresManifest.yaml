@@ -1,0 +1,59 @@
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+
+metadata:
+  name: clawrun
+  description: Unified management UI for OpenClaw and Ollama
+  icon: https://file.bttcdn.com/appstore/default/defaulticon.webp
+  appid: clawrun
+  version: '0.1.0'
+  title: ClawRun
+  categories:
+    - Utilities
+
+entrances:
+  - name: clawrun-web
+    port: 3000
+    host: clawrun-svc
+    title: ClawRun
+    icon: https://file.bttcdn.com/appstore/default/defaulticon.webp
+    authLevel: private
+    openMethod: window
+
+permission:
+  appData: true
+  appCache: true
+  sysData:
+    - group: service.appstore
+      dataType: app
+      version: v1
+      ops:
+        - InstallDevApp
+        - UninstallDevApp
+
+spec:
+  versionName: '0.1.0'
+  fullDescription: |
+    ClawRun is a unified management UI for OpenClaw and Ollama on Olares.
+    Monitor app status, manage Ollama models, and configure LLM providers
+    from a single interface.
+  developer: ClawRun
+  submitter: ClawRun
+  locale:
+    - en-US
+    - zh-CN
+  requiredMemory: 128Mi
+  limitedMemory: 512Mi
+  requiredDisk: 64Mi
+  limitedDisk: 1Gi
+  requiredCpu: '0.1'
+  limitedCpu: '1'
+  supportArch:
+    - amd64
+    - arm64
+
+options:
+  dependencies:
+    - name: olares
+      type: system
+      version: '>=1.10.1-0'

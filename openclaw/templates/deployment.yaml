@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: { { .Release.Name } }
+  namespace: { { .Release.Namespace } }
+  labels:
+    app: openclaw
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openclaw
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: openclaw
+    spec:
+      initContainers:
+        - name: init-permissions
+          image: "docker.io/beclab/aboveos-busybox:1.37.0"
+          command:
+            - sh
+            - "-c"
+            - |
+              mkdir -p /data/config /data/workspace
+              chown -R 1000:1000 /data/config /data/workspace
+          volumeMounts:
+            - name: config-data
+              mountPath: /data/config
+            - name: workspace-data
+              mountPath: /data/workspace
+          securityContext:
+            runAsUser: 0
+        - name: init-config
+          image: "ghcr.io/openclaw/openclaw:latest"
+          command:
+            - sh
+            - "-c"
+            - |
+              node dist/index.js config set \
+                gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback true
+
+              if [ -n "$ZAI_API_KEY" ]; then
+                node dist/index.js config set agents.defaults.model zai/glm-4.7-flash
+              elif [ -n "$OPENAI_API_KEY" ]; then
+                node dist/index.js config set agents.defaults.model openai/gpt-4o
+              fi
+          env:
+            - name: HOME
+              value: "/home/node"
+            - name: ANTHROPIC_API_KEY
+              value: "{{ .Values.olaresEnv.ANTHROPIC_API_KEY }}"
+            - name: OPENAI_API_KEY
+              value: "{{ .Values.olaresEnv.OPENAI_API_KEY }}"
+            - name: ZAI_API_KEY
+              value: "{{ .Values.olaresEnv.ZAI_API_KEY }}"
+          volumeMounts:
+            - name: config-data
+              mountPath: /home/node/.openclaw
+      containers:
+        - name: openclaw
+          image: "ghcr.io/openclaw/openclaw:latest"
+          command:
+            - node
+            - dist/index.js
+            - gateway
+            - "--bind"
+            - "lan"
+            - "--port"
+            - "18789"
+            - "--allow-unconfigured"
+          ports:
+            - containerPort: 18789
+              name: gateway
+          env:
+            - name: HOME
+              value: "/home/node"
+            - name: OPENCLAW_GATEWAY_TOKEN
+              value: "{{ .Values.olaresEnv.OPENCLAW_GATEWAY_TOKEN }}"
+            - name: ANTHROPIC_API_KEY
+              value: "{{ .Values.olaresEnv.ANTHROPIC_API_KEY }}"
+            - name: OPENAI_API_KEY
+              value: "{{ .Values.olaresEnv.OPENAI_API_KEY }}"
+            - name: ZAI_API_KEY
+              value: "{{ .Values.olaresEnv.ZAI_API_KEY }}"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+          volumeMounts:
+            - name: config-data
+              mountPath: /home/node/.openclaw
+            - name: workspace-data
+              mountPath: /home/node/.openclaw/workspace
+      volumes:
+        - name: config-data
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/config"
+            type: DirectoryOrCreate
+        - name: workspace-data
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/workspace"
+            type: DirectoryOrCreate

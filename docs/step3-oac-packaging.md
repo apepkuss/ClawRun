@@ -248,6 +248,33 @@ spec:
               mountPath: /data/workspace
           securityContext:
             runAsUser: 0
+        # init-config：写入必要的 gateway 配置，并根据可用 API Key 自动选择默认模型
+        - name: init-config
+          image: "ghcr.io/openclaw/openclaw:latest"
+          command:
+            - sh
+            - '-c'
+            - |
+              node dist/index.js config set \
+                gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback true
+
+              if [ -n "$ZAI_API_KEY" ]; then
+                node dist/index.js config set agents.defaults.model zai/glm-4
+              elif [ -n "$OPENAI_API_KEY" ]; then
+                node dist/index.js config set agents.defaults.model openai/gpt-4o
+              fi
+          env:
+            - name: HOME
+              value: "/home/node"
+            - name: ANTHROPIC_API_KEY
+              value: "{{ .Values.olaresEnv.ANTHROPIC_API_KEY }}"
+            - name: OPENAI_API_KEY
+              value: "{{ .Values.olaresEnv.OPENAI_API_KEY }}"
+            - name: ZAI_API_KEY
+              value: "{{ .Values.olaresEnv.ZAI_API_KEY }}"
+          volumeMounts:
+            - name: config-data
+              mountPath: /home/node/.openclaw
       containers:
         - name: openclaw
           image: "ghcr.io/openclaw/openclaw:latest"
@@ -371,33 +398,54 @@ permission:
 
 ### 3.8 本地自定义安装
 
-OAC 打包完成后，可通过 Olares Market 的 **自定义安装** 功能在本地测试，无需提交到 Market：
+OAC 打包完成后，可通过 Olares Market 的 **上传自定义 Chart** 功能在本地测试，无需提交到 Market。
+
+#### 第一步：打包 OAC 目录为压缩包
+
+```bash
+# 在项目根目录执行（格式支持 .zip / .tgz / .tar / .gz）
+tar -czf openclaw-0.1.0.tgz openclaw/
+```
+
+> 如已安装 helm，也可使用 `helm package openclaw/`，效果相同。
+
+#### 第二步：上传到 Olares Market
 
 1. 打开 Olares **Market** 应用
-2. 进入 **自定义安装**（Custom Installation）
-3. 上传或指定 OAC 目录
-4. 填写安装时的环境变量（`OPENCLAW_GATEWAY_TOKEN`、API Key 等）
-5. 确认安装，等待状态变为 Running
+2. 点击左侧边栏底部的 **我的 Olares**
+3. 点击右上角的 **上传自定义 Chart**，选择 `openclaw-0.1.0.tgz` 文件
+4. 系统弹出环境变量配置窗口，填写以下内容：
+   - `OPENCLAW_GATEWAY_TOKEN`（必填）— 用 `openssl rand -hex 32` 生成
+   - `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `ZAI_API_KEY`（可选）
+5. 点击继续安装，等待状态变为 Running
+
+> 已上传的自定义应用可在 **我的 Olares → 上传** 页签查看和管理。
 
 安装后，OpenClaw 将以正式应用身份运行（不带 `-dev` 后缀），命名空间格式为 `openclaw-<username>`。
 
 ### 3.9 验证检查项
 
-- [ ] 应用安装成功，状态为 Running
-- [ ] 通过入口域名访问 OpenClaw Web UI（需 Olares 认证）
-- [ ] `OPENCLAW_GATEWAY_TOKEN` 等环境变量正确注入
-- [ ] 使用已配置的 LLM 提供者正常对话
+- [x] 应用安装成功，状态为 Running
+- [x] 通过入口域名访问 OpenClaw Web UI（需 Olares 认证）
+- [x] `OPENCLAW_GATEWAY_TOKEN` 等环境变量正确注入
+- [x] 使用已配置的 LLM 提供者正常对话
 - [ ] 数据在 Pod 重启后保持持久化
 - [ ] （可选）通过 Ollama 端点调用本地模型正常
 
 ## 关键发现记录
 
-完成打包和测试后，记录以下信息：
+- [x] OAC 包版本号：`0.1.0`
+- [x] `envs` 机制是否正常（安装时 UI 提示填写环境变量）：**是**，仅提示必填项（`required: true`），可选项不弹窗
+- [x] 与 Studio 部署相比新发现的差异：见下方实测排查记录
 
-- [ ] OAC 包版本号：`___________________________`
-- [ ] 安装时遇到的问题：`___________________________`
-- [ ] `envs` 机制是否正常（安装时 UI 提示填写环境变量）：是 / 否
-- [ ] 与 Studio 部署相比新发现的差异：`___________________________`
+### 实测排查记录
+
+| # | 现象 | 原因 | 解决方案 |
+| --- | --- | --- | --- |
+| 1 | 安装时环境变量窗口只出现 `OPENCLAW_GATEWAY_TOKEN` | `required: false` 的 env 不强制弹窗，需安装后手动注入 | ✅ 已自动化：`init-config` 读取 env var 自动切换默认模型 |
+| 2 | Chat 提示 "no api key for anthropic" | 默认模型为 `anthropic/claude-opus-4-6`，未配置 Anthropic Key | ✅ 已自动化：`init-config` 按优先级 ZAI → OpenAI → Anthropic 自动选模型 |
+| 3 | `config set` 提示需重启网关 | OpenClaw 配置变更不热加载 | ✅ 已自动化：配置在 init container 写入，主容器启动时即生效 |
+| 4 | Pod 重启后需重新完成 Token 配对 | OpenClaw 安全设计，设备需显式授权 | ⚠️ 无法消除：每次重启后需 Control → Overview Connect，再 `devices approve` |
 
 ## 下一步
 

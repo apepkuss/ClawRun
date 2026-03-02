@@ -1,0 +1,76 @@
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+
+metadata:
+  name: openclaw
+  description: Personal AI assistant with multi-model support
+  icon: https://file.bttcdn.com/appstore/default/defaulticon.webp
+  appid: openclaw
+  version: '0.1.0'
+  title: OpenClaw
+  categories:
+    - Productivity
+
+entrances:
+  - name: openclaw-gateway
+    port: 18789
+    host: openclaw-svc
+    title: OpenClaw
+    icon: https://file.bttcdn.com/appstore/default/defaulticon.webp
+    authLevel: private
+    openMethod: window
+
+permission:
+  appData: true
+  appCache: true
+
+spec:
+  versionName: 'latest'
+  fullDescription: |
+    OpenClaw is a personal AI assistant with multi-model support (Anthropic,
+    OpenAI, ZAI, Ollama, etc.), accessible via Web UI and messaging channels.
+  developer: OpenClaw
+  submitter: OpenClaw
+  locale:
+    - en-US
+    - zh-CN
+  requiredMemory: 512Mi
+  limitedMemory: 2Gi
+  requiredDisk: 128Mi
+  limitedDisk: 5Gi
+  requiredCpu: '0.2'
+  limitedCpu: '2'
+  supportArch:
+    - amd64
+    - arm64
+
+envs:
+  - envName: OPENCLAW_GATEWAY_TOKEN
+    type: password
+    required: true
+    editable: false
+    description: "Gateway auth token, generate with: openssl rand -hex 32"
+
+  - envName: ANTHROPIC_API_KEY
+    type: password
+    required: false
+    editable: true
+    description: "Anthropic Claude API Key (optional)"
+
+  - envName: OPENAI_API_KEY
+    type: password
+    required: false
+    editable: true
+    description: "OpenAI API Key (optional)"
+
+  - envName: ZAI_API_KEY
+    type: password
+    required: false
+    editable: true
+    description: "ZAI (Zhipu GLM) API Key (optional)"
+
+options:
+  dependencies:
+    - name: olares
+      type: system
+      version: '>=1.10.1-0'

@@ -11,7 +11,8 @@
     - [1.3 设置实例规格](#13-设置实例规格)
     - [1.4 配置环境变量](#14-配置环境变量)
     - [1.5 配置持久化存储](#15-配置持久化存储)
-    - [1.6 部署和验证](#16-部署和验证)
+    - [1.6 配置启动命令](#16-配置启动命令)
+    - [1.7 部署和验证](#17-部署和验证)
   - [Studio 部署的已知限制](#studio-部署的已知限制)
   - [部署后可做的验证测试](#部署后可做的验证测试)
     - [测试 1：基本对话](#测试-1基本对话)
@@ -38,7 +39,7 @@
 | 桥接端口 | 18790 (Bridge, 可选) |
 | 数据目录 | `/home/node/.openclaw` |
 | 工作区目录 | `/home/node/.openclaw/workspace` |
-| 启动命令 | `node openclaw.mjs gateway --allow-unconfigured` |
+| 启动命令 | `node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured` |
 
 ## 部署步骤
 
@@ -62,8 +63,10 @@
 | 资源 | 建议值 | 说明 |
 |------|--------|------|
 | CPU | 2 cores | Gateway 常驻进程 + 偶发 AI 调用 |
-| Memory | 1 Gi | Node.js 应用，1G 通常够用 |
+| Memory | 2 Gi | 实测 1Gi 不够，容器会 OOMKilled；2Gi 稳定运行 |
 | GPU | 关闭 | OpenClaw 本身不需要 GPU |
+
+> **注意**：修改 deployment.yaml 的内存 limits/requests 后，还需同步修改 `OlaresManifest.yaml` 中的 `spec.limitedMemory` 和 `spec.requiredMemory`，否则 Olares 会拒绝应用配置。
 
 ### 1.4 配置环境变量
 
@@ -75,6 +78,8 @@
 |-----|-------|------|
 | `HOME` | `/home/node` | 容器内用户目录 |
 | `OPENCLAW_GATEWAY_TOKEN` | `<生成的随机 token>` | Gateway 认证令牌 |
+
+> **⚠️ 不要添加 `NODE_OPTIONS`**：若设置 `NODE_OPTIONS=--max-old-space-size=4096`，Node.js 会尝试使用 4GB 堆内存，超出容器 2Gi 限制，导致 OOMKilled（CrashLoopBackOff）。
 
 生成 token 的方法（在任意终端执行，将输出结果粘贴到上方 Value 中）：
 
@@ -159,7 +164,35 @@ openssl rand -hex 32
 > 对于 OpenClaw，配置和会话数据选择 `/app/data` 更安全。如果是单节点部署，两者在功能上差别不大，
 > 但 `/app/data` 仍有卸载后保留数据的优势。
 
-### 1.6 部署和验证
+### 1.6 配置启动命令
+
+Studio 生成的 deployment.yaml 默认不包含 `command` 字段，容器会使用镜像内置的默认 CMD（绑定到 `127.0.0.1`）。由于 Olares 的 Envoy sidecar 使用 `ORIGINAL_DST` 策略转发流量（目标地址为 Pod IP 而非 localhost），必须显式指定启动命令让 Gateway 绑定到所有网络接口。
+
+在 Studio 中打开 deployment.yaml，在 `openclaw` 容器的 `image` 字段下方添加：
+
+```yaml
+command:
+  - node
+  - dist/index.js
+  - gateway
+  - "--bind"
+  - "lan"
+  - "--port"
+  - "18789"
+  - "--allow-unconfigured"
+```
+
+然后执行以下命令，写入 Control UI 的访问来源配置（容器启动后一次性操作）：
+
+```bash
+kubectl exec -n <namespace> <pod-name> -c openclaw -- \
+  node dist/index.js config set \
+  gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback true
+```
+
+> **说明**：`--bind lan` 使 Gateway 监听 `0.0.0.0:18789`；`--allow-unconfigured` 允许在无本地配置时启动；`dangerouslyAllowHostHeaderOriginFallback` 允许通过 Host header 验证请求来源（Olares 反向代理场景下的必要配置）。
+
+### 1.7 部署和验证
 
 1. 点击 **Create**，等待底部状态栏显示部署成功
 2. 点击 **Preview** 打开应用
@@ -187,9 +220,31 @@ openssl rand -hex 32
 
 > 前提：至少配置了一个 LLM 提供者（API Key）。未配置时 Gateway 可正常启动，Web UI 可访问，但 AI 无法响应消息。
 
-1. 点击 Studio 的 **Preview** 打开 OpenClaw 内置 Web UI（Dashboard）
-2. 首次访问需在 Settings 中输入 `OPENCLAW_GATEWAY_TOKEN` 完成设备配对
-3. 通过 WebChat 发送消息，确认 AI 响应正常
+1. 点击 Studio 的 **Preview** 打开 OpenClaw Control UI
+2. 首次访问时页面显示 `unauthorized: gateway token missing`，进入左侧 **Control → Overview**
+3. 在 **Gateway Token** 输入框中填入 `OPENCLAW_GATEWAY_TOKEN` 的值，点击 **Connect**
+4. 页面显示 `pairing required`，在容器内执行以下命令完成设备配对：
+
+   ```bash
+   # 查看待批准的设备请求，获取 Request ID
+   kubectl exec -n <namespace> <pod-name> -c openclaw -- \
+     node dist/index.js devices list
+
+   # 批准设备（替换 <request-id>）
+   kubectl exec -n <namespace> <pod-name> -c openclaw -- \
+     node dist/index.js devices approve <request-id>
+   ```
+
+5. 回到页面点击 **Refresh**，Health 状态变为 `OK`
+6. 若 AI 回复报错 `No API key found for provider "anthropic"`，说明默认 Agent 模型使用 Anthropic，需切换为已配置的提供者：
+
+   ```bash
+   kubectl exec -n <namespace> <pod-name> -c openclaw -- \
+     node dist/index.js config set agents.defaults.model <provider>/<model>
+   # 例如：zai/glm-4 或 openai/gpt-4o-mini
+   ```
+
+7. 通过 **Chat** 发送消息，确认 AI 响应正常
 
 ### 测试 2：检查 Gateway 状态
 
@@ -203,6 +258,20 @@ node dist/index.js health --token "$OPENCLAW_GATEWAY_TOKEN"
 
 1. 通过 Control Hub **Restart** 工作负载
 2. 重启后检查之前的对话记录和配置是否保留
+
+## 实测排查记录
+
+以下问题在首次按本文档部署时实际触发，已将修复结论回写到对应章节，此处汇总备查。
+
+| # | 现象 | 根本原因 | 修复方法 |
+| --- | ------ | --------- | --------- |
+| 1 | CrashLoopBackOff，重启 40+ 次，日志为空 | `NODE_OPTIONS=--max-old-space-size=4096` 声明 4GB 堆，超出容器 1Gi 限制，OOMKilled（exit code 137） | 删除 `NODE_OPTIONS` 环境变量；内存 limit/request 改为 2Gi（同步更新 OlaresManifest.yaml） |
+| 2 | Preview 显示 502，端口连接失败 | Olares Envoy sidecar 使用 `ORIGINAL_DST` 策略，以 Pod IP 转发流量；OpenClaw 默认只绑定 `127.0.0.1`，拒绝连接 | 启动命令加 `--bind lan`，使 Gateway 监听 `0.0.0.0:18789` |
+| 3 | Gateway 启动失败：`non-loopback Control UI requires allowedOrigins` | `--bind lan` 后 OpenClaw 要求显式配置允许的请求来源 | 执行 `config set gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback true` |
+| 4 | Control UI 无法找到 Token 输入框 | Token 入口在 **Control → Overview** 页的 Gateway Token 字段，不在 Settings → Config | 进入 Overview 页输入 Token 后点 Connect |
+| 5 | Connect 后显示 `pairing required` | OpenClaw 将浏览器视为新设备，需 Gateway 端显式批准 | 执行 `devices list` 获取 Request ID，再执行 `devices approve <id>` |
+| 6 | AI 回复报错 `No API key found for provider "anthropic"` | Gateway 默认 Agent 模型为 `anthropic/claude-opus-4-6`，但未配置 Anthropic Key | 执行 `config set agents.defaults.model <已配置的提供者>/<模型>` |
+| 7 | `config set agent.model` 报错迁移警告 | OpenClaw 新版将 `agent.*` 迁移至 `agents.defaults.*` | 改用 `agents.defaults.model` |
 
 ## 下一步
 

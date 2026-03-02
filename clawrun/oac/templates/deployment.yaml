@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: clawrun
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clawrun
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: clawrun
+    spec:
+      containers:
+        - name: clawrun
+          image: "apepkuss/clawrun:0.1.0"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: web
+          env:
+            - name: PORT
+              value: "3000"
+            - name: NODE_ENV
+              value: "production"
+            - name: OS_SYSTEM_SERVER
+              value: "system-server.user-system-{{ if .Values.bfl }}{{ .Values.bfl.username }}{{ end }}"
+            - name: OS_APP_KEY
+              value: "{{ if .Values.os }}{{ .Values.os.appKey }}{{ end }}"
+            - name: OS_APP_SECRET
+              value: "{{ if .Values.os }}{{ .Values.os.appSecret }}{{ end }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+          volumeMounts:
+            - name: app-data
+              mountPath: /app/data
+      volumes:
+        - name: app-data
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/clawrun"
+            type: DirectoryOrCreate
