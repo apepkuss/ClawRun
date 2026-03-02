@@ -1,14 +1,22 @@
 import React from 'react';
 
+export interface InstallOption {
+  label: string;
+  onClick: () => void;
+}
+
 interface Props {
   name: string;
   healthy: boolean;
   endpoint: string | null;
   onUninstall: () => void;
   onOpen?: () => void;
+  installOptions?: InstallOption[];
 }
 
-export function AppCard({ name, healthy, endpoint, onUninstall, onOpen }: Props) {
+export function AppCard({ name, healthy, endpoint, onUninstall, onOpen, installOptions }: Props) {
+  const showInstall = !healthy && installOptions && installOptions.length > 0;
+
   return (
     <div className="border rounded-xl p-5 flex flex-col gap-3 bg-white shadow-sm">
       <div className="flex items-center justify-between">
@@ -22,22 +30,39 @@ export function AppCard({ name, healthy, endpoint, onUninstall, onOpen }: Props)
       {endpoint && (
         <p className="text-xs text-gray-400 truncate">{endpoint}</p>
       )}
-      <div className="flex gap-2 mt-1">
-        {onOpen && (
-          <button
-            onClick={onOpen}
-            disabled={!healthy}
-            className="flex-1 text-sm py-1.5 rounded-lg border border-blue-500 text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            打开 UI
-          </button>
+      <div className="flex flex-col gap-2 mt-1">
+        {/* Install buttons — only shown when offline */}
+        {showInstall && (
+          <div className="flex gap-2">
+            {installOptions!.map((opt) => (
+              <button
+                key={opt.label}
+                onClick={opt.onClick}
+                className="flex-1 text-sm py-1.5 rounded-lg border border-green-500 text-green-600 hover:bg-green-50"
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         )}
-        <button
-          onClick={onUninstall}
-          className="flex-1 text-sm py-1.5 rounded-lg border border-red-400 text-red-500 hover:bg-red-50"
-        >
-          卸载
-        </button>
+        {/* Open UI + Uninstall row */}
+        <div className="flex gap-2">
+          {onOpen && (
+            <button
+              onClick={onOpen}
+              disabled={!healthy}
+              className="flex-1 text-sm py-1.5 rounded-lg border border-blue-500 text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              打开 UI
+            </button>
+          )}
+          <button
+            onClick={onUninstall}
+            className="flex-1 text-sm py-1.5 rounded-lg border border-red-400 text-red-500 hover:bg-red-50"
+          >
+            卸载
+          </button>
+        </div>
       </div>
     </div>
   );

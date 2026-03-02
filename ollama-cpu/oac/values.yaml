@@ -1,0 +1,4 @@
+# Olares injects the following variables automatically at install time:
+#   .Values.userspace.appData   — persistent data path (JuiceFS)
+#   .Values.userspace.appCache  — local cache path
+#   .Values.bfl.username        — current username

@@ -15,7 +15,7 @@ docker push "${TAG}"
 DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${TAG}")
 echo "==> Done: ${DIGEST}"
 echo ""
-echo "Run this on the Olares machine to deploy:"
+echo "Next step: run the following command on the Olares machine to deploy:"
 echo ""
 echo "  kubectl set image deployment/clawrun -n clawrun-apepkuss clawrun=\"${DIGEST}\""
 echo ""

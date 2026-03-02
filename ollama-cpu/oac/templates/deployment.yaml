@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: ollama-cpu
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama-cpu
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: ollama-cpu
+    spec:
+      containers:
+        - name: ollama-cpu
+          image: "ollama/ollama:latest"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 11434
+              name: api
+          env:
+            # 监听所有接口，允许 Pod 外部访问
+            - name: OLLAMA_HOST
+              value: "0.0.0.0:11434"
+            # 模型加载后保持 24 小时不卸载
+            - name: OLLAMA_KEEP_ALIVE
+              value: "24h"
+            # CPU 模式下限制并行推理数，避免 OOM
+            - name: OLLAMA_NUM_PARALLEL
+              value: "1"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: 4000m
+              memory: 16Gi
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
+      volumes:
+        - name: ollama-data
+          hostPath:
+            path: "{{ .Values.userspace.appData }}/ollama-cpu"
+            type: DirectoryOrCreate

@@ -6,6 +6,9 @@ import { OllamaPanel } from './components/OllamaPanel';
 
 type Tab = 'dashboard' | 'settings';
 
+// Helm chart 仓库地址（GitHub raw），提供 static-index.yaml 索引
+const CHART_REPO_URL = 'https://raw.githubusercontent.com/apepkuss/ClawRun/main/charts';
+
 export default function App() {
   const { status, loading, refresh } = useAppStatus();
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -28,9 +31,24 @@ export default function App() {
     refresh();
   }
 
+  async function installApp(appName: string) {
+    if (!confirm(`确认安装 ${appName}？`)) return;
+    const res = await fetch(`/api/apps/${appName}/install`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoUrl: CHART_REPO_URL }),
+    });
+    if (!res.ok) {
+      alert(`${appName} 安装请求失败，请查看控制台`);
+      return;
+    }
+    refresh();
+  }
+
   async function uninstall(name: string) {
     if (!confirm(`确认卸载 ${name}？`)) return;
     await fetch(`/api/apps/${name}/uninstall`, { method: 'POST' });
+    refresh();
   }
 
   return (
@@ -67,6 +85,9 @@ export default function App() {
                   name="OpenClaw"
                   healthy={status?.openclaw.healthy ?? false}
                   endpoint={status?.openclaw.endpoint ?? null}
+                  installOptions={[
+                    { label: '安装', onClick: () => { void installApp('openclaw'); } },
+                  ]}
                   onOpen={() => window.open(status?.openclaw.uiUrl ?? status?.openclaw.endpoint ?? '', '_blank')}
                   onUninstall={() => { void uninstall('openclaw'); }}
                 />
@@ -74,6 +95,10 @@ export default function App() {
                   name="Ollama"
                   healthy={status?.ollama.healthy ?? false}
                   endpoint={status?.ollama.endpoint ?? null}
+                  installOptions={[
+                    { label: '安装 CPU', onClick: () => { void installApp('ollama-cpu'); } },
+                    { label: '安装 GPU', onClick: () => { window.open('https://market.olares.com/app/ollama', '_blank'); } },
+                  ]}
                   onUninstall={() => { void uninstall('ollama'); }}
                 />
               </div>

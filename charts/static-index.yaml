@@ -1,0 +1,17 @@
+apiVersion: v1
+entries:
+  openclaw:
+    - name: openclaw
+      version: 0.1.0
+      appVersion: latest
+      description: OpenClaw - Personal AI Assistant on Olares
+      urls:
+        - https://github.com/apepkuss/ClawRun/releases/download/charts-v0.1.0/openclaw-0.1.0.tgz
+  ollama-cpu:
+    - name: ollama-cpu
+      version: 0.1.0
+      appVersion: 0.1.0
+      description: Ollama CPU Only - Run LLM models without GPU on Olares
+      urls:
+        - https://github.com/apepkuss/ClawRun/releases/download/charts-v0.1.0/ollama-cpu-0.1.0.tgz
+generated: "2026-03-02T00:00:00Z"
