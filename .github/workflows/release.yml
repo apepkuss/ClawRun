@@ -1,0 +1,43 @@
+name: Release Charts
+
+on:
+  push:
+    tags:
+      - 'charts-v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#charts-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Package openclaw OAC
+        run: tar czf charts/openclaw-${{ steps.version.outputs.version }}.tgz -C openclaw .
+
+      - name: Package ollama-cpu OAC
+        run: tar czf charts/ollama-cpu-${{ steps.version.outputs.version }}.tgz -C ollama-cpu/oac .
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Charts ${{ github.ref_name }}"
+          body: |
+            OAC chart packages for ClawRun one-click install.
+
+            | Chart | Version |
+            |-------|---------|
+            | openclaw | ${{ steps.version.outputs.version }} |
+            | ollama-cpu | ${{ steps.version.outputs.version }} |
+
+            Install via ClawRun dashboard, or upload manually in Olares Market → My Olares → Upload custom chart.
+          files: |
+            charts/openclaw-${{ steps.version.outputs.version }}.tgz
+            charts/ollama-cpu-${{ steps.version.outputs.version }}.tgz
