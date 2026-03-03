@@ -1,11 +1,14 @@
 import { callAppService } from '../auth/system-server';
 
 // Derive username from OS_SYSTEM_SERVER = "system-server.user-system-{username}"
+export function getOlaresUsername(): string {
+  const systemServer = process.env.OS_SYSTEM_SERVER ?? '';
+  return systemServer.split('user-system-')[1] ?? 'unknown';
+}
+
 // Returns the Helm repo base URL (app-service fetches index.yaml from here)
 function getSelfChartRepoUrl(): string {
-  const systemServer = process.env.OS_SYSTEM_SERVER ?? '';
-  const username = systemServer.split('user-system-')[1] ?? 'unknown';
-  return `http://clawrun-svc.clawrun-${username}:3001`;
+  return `http://clawrun-svc.clawrun-${getOlaresUsername()}:3001`;
 }
 
 export async function installApp(

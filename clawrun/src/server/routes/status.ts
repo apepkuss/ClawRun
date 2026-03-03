@@ -23,6 +23,7 @@ router.get('/', async (_req, res) => {
       healthy: ollamaHealthy,
       endpoint: ollamaConn.endpoint || null,
       uiUrl: ollamaConn.uiUrl || null,
+      variant: ollamaConn.variant ?? null,
     },
   });
 });

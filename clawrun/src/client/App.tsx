@@ -5,10 +5,12 @@ import { ConnectPanel } from './components/ConnectPanel';
 import { OllamaPanel } from './components/OllamaPanel';
 
 type Tab = 'dashboard' | 'settings';
+type SettingsTab = 'openclaw' | 'ollama';
 
 export default function App() {
   const { status, loading, refresh } = useAppStatus();
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('openclaw');
 
   async function connectOpenClaw(values: Record<string, string>) {
     await fetch('/api/openclaw/connect', {
@@ -89,61 +91,81 @@ export default function App() {
                   onUninstall={() => { void uninstall('openclaw'); }}
                 />
                 <AppCard
-                  name="Ollama"
+                  name={`Ollama${status?.ollama.variant === 'cpu' ? ' (CPU)' : status?.ollama.variant === 'gpu' ? ' (GPU)' : ''}`}
                   healthy={status?.ollama.healthy ?? false}
                   endpoint={status?.ollama.endpoint ?? null}
-                  installOptions={[
+                  installOptions={status?.ollama.variant ? [] : [
                     { label: '安装 CPU', onClick: () => { void installApp('ollama-cpu'); } },
                     { label: '安装 GPU', onClick: () => { window.open('https://market.olares.com/app/ollama', '_blank'); } },
                   ]}
-                  onUninstall={() => { void uninstall('ollama'); }}
+                  onUninstall={() => { void uninstall(status?.ollama.variant === 'cpu' ? 'ollama-cpu' : 'ollama'); }}
                 />
               </div>
             )}
 
-            {/* Ollama 模型管理 */}
-            <div className="bg-white border rounded-xl p-5 shadow-sm">
-              <OllamaPanel healthy={status?.ollama.healthy ?? false} />
-            </div>
           </div>
         )}
 
         {tab === 'settings' && (
           <div className="flex flex-col gap-6">
-            <h2 className="text-base font-semibold text-gray-500 uppercase tracking-wide">
-              连接配置
-            </h2>
-            <div className="bg-white border rounded-xl p-5 shadow-sm">
-              <ConnectPanel
-                key={`openclaw-${status?.openclaw.endpoint ?? ''}`}
-                label="OpenClaw 连接"
-                fields={[
-                  { key: 'endpoint', label: '健康检查端点（内网）', placeholder: 'http://openclaw-svc.openclaw-apepkuss:18789' },
-                  { key: 'token', label: 'Gateway Token', placeholder: 'OPENCLAW_GATEWAY_TOKEN 的值', type: 'password' },
-                  { key: 'uiUrl', label: 'Web UI 地址（外网）', placeholder: 'https://openclaw.xxxx.apepkuss.olares.cn' },
-                ]}
-                initialValues={{
-                  endpoint: status?.openclaw.endpoint ?? '',
-                  uiUrl: status?.openclaw.uiUrl ?? '',
-                }}
-                onConnect={connectOpenClaw}
-              />
+            {/* Sub-tabs */}
+            <div className="flex gap-1 border-b pb-2">
+              {([['openclaw', 'OpenClaw'], ['ollama', 'Ollama']] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setSettingsTab(key)}
+                  className={`px-4 py-1.5 rounded-t-lg text-sm font-medium transition-colors ${
+                    settingsTab === key
+                      ? 'bg-white border border-b-white -mb-[9px] text-blue-600'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-            <div className="bg-white border rounded-xl p-5 shadow-sm">
-              <ConnectPanel
-                key={`ollama-${status?.ollama.endpoint ?? ''}`}
-                label="Ollama 连接"
-                fields={[
-                  { key: 'endpoint', label: '服务端点（内网）', placeholder: 'http://ollama-cpu-svc.ollama-cpu-apepkuss:11434' },
-                  { key: 'uiUrl', label: 'Web UI 地址（外网）', placeholder: 'https://xxxx.apepkuss.olares.cn' },
-                ]}
-                initialValues={{
-                  endpoint: status?.ollama.endpoint ?? '',
-                  uiUrl: status?.ollama.uiUrl ?? '',
-                }}
-                onConnect={connectOllama}
-              />
-            </div>
+
+            {settingsTab === 'openclaw' && (
+              <div className="bg-white border rounded-xl p-5 shadow-sm">
+                <ConnectPanel
+                  key={`openclaw-${status?.openclaw.endpoint ?? ''}`}
+                  label="OpenClaw 连接"
+                  fields={[
+                    { key: 'endpoint', label: '健康检查端点（内网）', placeholder: 'http://openclaw-svc.openclaw-apepkuss:18789' },
+                    { key: 'token', label: 'Gateway Token', placeholder: 'OPENCLAW_GATEWAY_TOKEN 的值', type: 'password' },
+                    { key: 'uiUrl', label: 'Web UI 地址（外网）', placeholder: 'https://openclaw.xxxx.apepkuss.olares.cn' },
+                  ]}
+                  initialValues={{
+                    endpoint: status?.openclaw.endpoint ?? '',
+                    uiUrl: status?.openclaw.uiUrl ?? '',
+                  }}
+                  onConnect={connectOpenClaw}
+                />
+              </div>
+            )}
+
+            {settingsTab === 'ollama' && (
+              <>
+                <div className="bg-white border rounded-xl p-5 shadow-sm">
+                  <ConnectPanel
+                    key={`ollama-${status?.ollama.endpoint ?? ''}`}
+                    label="Ollama 连接"
+                    fields={[
+                      { key: 'endpoint', label: '服务端点（内网）', placeholder: 'http://ollama-cpu-svc.ollama-cpu-apepkuss:11434' },
+                      { key: 'uiUrl', label: 'Web UI 地址（外网）', placeholder: 'https://xxxx.apepkuss.olares.cn' },
+                    ]}
+                    initialValues={{
+                      endpoint: status?.ollama.endpoint ?? '',
+                      uiUrl: status?.ollama.uiUrl ?? '',
+                    }}
+                    onConnect={connectOllama}
+                  />
+                </div>
+                <div className="bg-white border rounded-xl p-5 shadow-sm">
+                  <OllamaPanel healthy={status?.ollama.healthy ?? false} />
+                </div>
+              </>
+            )}
           </div>
         )}
       </main>

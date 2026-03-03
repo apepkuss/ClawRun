@@ -1,5 +1,6 @@
 import { Router, Request } from 'express';
-import { installApp, uninstallApp } from '../services/app-manager';
+import { installApp, uninstallApp, getOlaresUsername } from '../services/app-manager';
+import { setVariant, setConnection } from '../services/ollama';
 
 const router = Router();
 
@@ -24,12 +25,29 @@ function getAuthInfo(req: Request): { bflUser: string; accessToken: string | nul
   return { bflUser: user, accessToken };
 }
 
+// Map app name → Ollama variant for auto-configuration
+const OLLAMA_VARIANTS: Record<string, { variant: 'cpu' | 'gpu'; svcName: string; port: number }> = {
+  'ollama-cpu': { variant: 'cpu', svcName: 'ollama-cpu-svc', port: 11434 },
+  'ollama':     { variant: 'gpu', svcName: 'ollama-svc',     port: 11434 },
+};
+
 // POST /api/apps/:name/install   body: { repoUrl }
 router.post('/:name/install', async (req, res) => {
   try {
     const { bflUser, accessToken } = getAuthInfo(req);
     const result = await installApp(req.params.name, req.body.repoUrl, bflUser, accessToken);
     console.log('[install] result:', JSON.stringify(result));
+
+    // Auto-configure Ollama variant + endpoint after successful install
+    const ollamaInfo = OLLAMA_VARIANTS[req.params.name];
+    if (ollamaInfo) {
+      const username = getOlaresUsername();
+      const ep = `http://${ollamaInfo.svcName}.${req.params.name}-${username}:${ollamaInfo.port}`;
+      setVariant(ollamaInfo.variant);
+      setConnection(ep);
+      console.log(`[install] auto-configured ollama: variant=${ollamaInfo.variant}, endpoint=${ep}`);
+    }
+
     res.json(result);
   } catch (err) {
     console.error('[install] error:', String(err));
@@ -42,6 +60,14 @@ router.post('/:name/uninstall', async (req, res) => {
   try {
     const { bflUser, accessToken } = getAuthInfo(req);
     const result = await uninstallApp(req.params.name, bflUser, accessToken);
+
+    // Clear Ollama variant + endpoint after uninstall
+    if (OLLAMA_VARIANTS[req.params.name]) {
+      setVariant(null);
+      setConnection('');
+      console.log('[uninstall] cleared ollama variant and endpoint');
+    }
+
     res.json(result);
   } catch (err) {
     console.error('[uninstall] error:', String(err));

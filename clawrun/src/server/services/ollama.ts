@@ -19,22 +19,35 @@ function saveConfig(update: Record<string, unknown>) {
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(merged, null, 2));
 }
 
+export type OllamaVariant = 'cpu' | 'gpu' | null;
+
 // Runtime state (initialized from persisted config)
-const stored = (loadConfig().ollama ?? { endpoint: '', uiUrl: '' }) as {
+const stored = (loadConfig().ollama ?? { endpoint: '', uiUrl: '', variant: null }) as {
   endpoint: string;
   uiUrl?: string;
+  variant?: OllamaVariant;
 };
 let endpoint = stored.endpoint;
 let uiUrl = stored.uiUrl ?? '';
+let variant: OllamaVariant = stored.variant ?? null;
+
+function persist() {
+  saveConfig({ ollama: { endpoint, uiUrl, variant } });
+}
 
 export function setConnection(ep: string, ui?: string) {
   endpoint = ep.replace(/\/$/, '');
   uiUrl = (ui ?? '').replace(/\/$/, '');
-  saveConfig({ ollama: { endpoint, uiUrl } });
+  persist();
+}
+
+export function setVariant(v: OllamaVariant) {
+  variant = v;
+  persist();
 }
 
 export function getConnection() {
-  return { endpoint, uiUrl };
+  return { endpoint, uiUrl, variant };
 }
 
 // wget helper: run a wget command and return { ok, body }
@@ -57,11 +70,16 @@ function wget(url: string, opts?: { method?: string; body?: string }): Promise<{
   });
 }
 
-// Health check via wget
+// Health check via wget — any HTTP response (including 400 from Envoy sidecar) means alive
 export async function checkStatus(): Promise<boolean> {
   if (!endpoint) return false;
-  const { ok } = await wget(`${endpoint}/api/tags`);
-  return ok;
+  return new Promise((resolve) => {
+    exec(
+      `wget -q -S -O /dev/null --timeout=5 "${endpoint}/api/tags" 2>&1`,
+      { timeout: 10000 },
+      (_err, stdout) => resolve(stdout.includes('HTTP/')),
+    );
+  });
 }
 
 export async function listModels(): Promise<unknown> {

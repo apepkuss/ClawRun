@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 export interface AppStatus {
   openclaw: { healthy: boolean; endpoint: string | null; uiUrl: string | null };
-  ollama: { healthy: boolean; endpoint: string | null };
+  ollama: { healthy: boolean; endpoint: string | null; uiUrl: string | null; variant: 'cpu' | 'gpu' | null };
 }
 
 const POLL_INTERVAL = 10_000;
