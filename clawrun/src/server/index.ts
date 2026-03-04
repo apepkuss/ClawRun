@@ -38,6 +38,7 @@ chartApp.use((req, _res, next) => {
   next();
 });
 chartApp.use(express.static(chartsDir));
+chartApp.use('/charts', express.static(chartsDir));
 http.createServer(chartApp).listen(CHART_PORT, () => {
   console.log(`ClawRun chart server listening on port ${CHART_PORT}`);
 });
