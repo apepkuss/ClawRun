@@ -24,7 +24,7 @@ spec:
       serviceAccountName: clawrun-labeler
       containers:
         - name: clawrun
-          image: "apepkuss/clawrun:latest"
+          image: "apepkuss/clawrun:0.1.1"
           imagePullPolicy: Always
           securityContext:
             capabilities:
