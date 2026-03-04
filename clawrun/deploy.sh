@@ -18,7 +18,12 @@ sed -i '' "s|image: \"${IMAGE}:.*\"|image: \"${IMAGE}:${VERSION}\"|" oac/templat
 sed -i '' "s/^  version: .*/  version: '${VERSION}'/" oac/OlaresManifest.yaml
 sed -i '' "s/^  versionName: .*/  versionName: '${VERSION}'/" oac/OlaresManifest.yaml
 
-# ── 3. Build and push Docker image ──
+# ── 3. Package bundled charts (OpenClaw + Ollama CPU) ──
+echo "==> Packaging bundled charts ..."
+helm package ../openclaw/ -d charts/
+helm package ../ollama-cpu/oac/ -d charts/
+
+# ── 4. Build and push Docker image ──
 echo "==> Cleaning up old local images ..."
 docker images "${IMAGE}" --format '{{.ID}} {{.Tag}}' | while read -r id tag; do
   if [ "$tag" != "$VERSION" ] && [ "$tag" != "latest" ]; then
@@ -36,7 +41,7 @@ docker push "${IMAGE}:latest"
 
 DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${IMAGE}:${VERSION}" 2>/dev/null | sed 's/.*@//')
 
-# ── 4. Package OAC chart ──
+# ── 5. Package OAC chart ──
 echo "==> Packaging OAC chart ..."
 TGZ="${CHART_NAME}-${VERSION}.tgz"
 helm package oac/ -d /tmp/clawrun-oac >/dev/null

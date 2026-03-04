@@ -44,6 +44,11 @@ jobs:
           sed -i "s|^  versionName:.*|  versionName: '${VERSION}'|" clawrun/oac/OlaresManifest.yaml
           sed -i "s|image: \"apepkuss/clawrun:.*\"|image: \"apepkuss/clawrun:${VERSION}\"|" clawrun/oac/templates/deployment.yaml
 
+      - name: Package bundled charts
+        run: |
+          helm package openclaw/ -d clawrun/charts/
+          helm package ollama-cpu/oac/ -d clawrun/charts/
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
