@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { exec, spawn } from 'child_process';
-
 const CONFIG_FILE = '/app/data/config.json';
 
 function loadConfig(): Record<string, unknown> {
@@ -48,6 +48,22 @@ export function setVariant(v: OllamaVariant) {
 
 export function getConnection() {
   return { endpoint, uiUrl, variant };
+}
+
+// Auto-detect external UI URL from Olares URL pattern.
+// Olares: single entrance = {appId}.{zone}, multi = {appId}{index}.{zone}
+export function autoConfigureUiUrl(baseDomain: string, v: OllamaVariant): void {
+  if (!v || !baseDomain) return;
+
+  // Ollama has 1 entrance → no index suffix
+  const appName = v === 'cpu' ? 'ollama-cpu' : 'ollama';
+  const appId = crypto.createHash('md5').update(appName).digest('hex').substring(0, 8);
+  const expected = `https://${appId}.${baseDomain}`;
+  if (uiUrl === expected) return; // already correct
+
+  uiUrl = expected;
+  persist();
+  console.log(`[ollama] auto-configured uiUrl: ${expected}`);
 }
 
 // HTTP helper using curl. curl sends proper HTTP/1.1 headers that pass through Olares Envoy sidecar.

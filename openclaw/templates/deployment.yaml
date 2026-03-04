@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: { { .Release.Name } }
-  namespace: { { .Release.Namespace } }
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
   labels:
     app: openclaw
 spec:
@@ -34,13 +34,15 @@ spec:
           securityContext:
             runAsUser: 0
         - name: init-config
-          image: "ghcr.io/openclaw/openclaw:latest"
+          image: "alpine/openclaw:2026.3.2"
           command:
             - sh
             - "-c"
             - |
               node dist/index.js config set \
                 gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback true
+              node dist/index.js config set \
+                gateway.controlUi.dangerouslyDisableDeviceAuth true
 
               if [ -n "$ZAI_API_KEY" ]; then
                 node dist/index.js config set agents.defaults.model zai/glm-4.7-flash
@@ -61,16 +63,22 @@ spec:
               mountPath: /home/node/.openclaw
       containers:
         - name: openclaw
-          image: "ghcr.io/openclaw/openclaw:latest"
+          image: "alpine/openclaw:2026.3.2"
+          # Bypass Olares Envoy sidecar for port 18789 so ClawRun can
+          # call OpenClaw /api/config without Authelia auth headers.
+          # Must run in entrypoint (not init container) to execute AFTER
+          # olares-sidecar-init sets up iptables REDIRECT rules.
           command:
-            - node
-            - dist/index.js
-            - gateway
-            - "--bind"
-            - "lan"
-            - "--port"
-            - "18789"
-            - "--allow-unconfigured"
+            - sh
+            - "-c"
+            - |
+              (apk add --no-cache iptables iptables-legacy 2>/dev/null || true)
+              iptables-legacy -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || \
+                iptables -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || true
+              exec node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
           ports:
             - containerPort: 18789
               name: gateway

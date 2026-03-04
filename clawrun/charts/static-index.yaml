@@ -16,7 +16,7 @@ entries:
     appVersion: latest
     created: "2026-03-02T22:10:10.734127+08:00"
     description: OpenClaw - Personal AI Assistant on Olares
-    digest: 708a33a3f9650d1f49544b2bff440c7ef7ccc9dc8e8d4c3ff256c9784590fe12
+    digest: 4ff9e1f8a7ade4d49f7255483c02440d3a1273541cf7f859953ceeb66ebc19ac
     name: openclaw
     type: application
     urls:

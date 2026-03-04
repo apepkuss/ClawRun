@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 
 export interface AppStatus {
-  openclaw: { healthy: boolean; endpoint: string | null; uiUrl: string | null };
-  ollama: { healthy: boolean; endpoint: string | null; uiUrl: string | null; variant: 'cpu' | 'gpu' | null };
+  openclaw: { healthy: boolean; endpoint: string | null; uiUrl: string | null; token: string | null; installState: string | null; installProgress: string | null };
+  ollama: { healthy: boolean; endpoint: string | null; uiUrl: string | null; variant: 'cpu' | 'gpu' | null; installState: string | null; installProgress: string | null };
 }
 
 const POLL_INTERVAL = 10_000;
+const FAST_POLL_INTERVAL = 3_000;
 
 export function useAppStatus() {
   const [status, setStatus] = useState<AppStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fastPoll, setFastPoll] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,9 +29,10 @@ export function useAppStatus() {
     }
 
     void fetch_();
-    const id = setInterval(() => { void fetch_(); }, POLL_INTERVAL);
+    const interval = fastPoll ? FAST_POLL_INTERVAL : POLL_INTERVAL;
+    const id = setInterval(() => { void fetch_(); }, interval);
     return () => { cancelled = true; clearInterval(id); };
-  }, []);
+  }, [fastPoll]);
 
   function refresh() {
     fetch('/api/status')
@@ -38,5 +41,5 @@ export function useAppStatus() {
       .catch(() => {});
   }
 
-  return { status, loading, refresh };
+  return { status, loading, refresh, setFastPoll };
 }

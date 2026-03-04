@@ -15,7 +15,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-RUN apk add --no-cache iptables iptables-legacy curl
+RUN apk add --no-cache iptables iptables-legacy curl wget
 
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev

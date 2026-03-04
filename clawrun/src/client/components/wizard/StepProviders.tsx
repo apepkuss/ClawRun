@@ -1,0 +1,130 @@
+import React, { useState } from 'react';
+import { PROVIDERS } from './constants';
+import type { WizardState } from './types';
+
+interface Props {
+  state: WizardState;
+  onChange: (s: WizardState) => void;
+  configuredEnvVars: string[];
+  ollamaHealthy: boolean;
+  ollamaEndpoint: string | null;
+}
+
+export function StepProviders({ state, onChange, configuredEnvVars, ollamaHealthy, ollamaEndpoint }: Props) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  function setKey(providerId: string, value: string) {
+    onChange({
+      ...state,
+      providers: { ...state.providers, [providerId]: value },
+    });
+  }
+
+  function updateOllama(field: 'baseUrl' | 'apiKey', value: string) {
+    onChange({
+      ...state,
+      ollama: { ...state.ollama, [field]: value },
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* ── Cloud Providers ── */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">云端服务商</h3>
+        <p className="text-xs text-gray-400 mb-3">
+          输入 API Key 后保存，OpenClaw 将自动重启以生效。
+        </p>
+        <div className="space-y-2">
+          {PROVIDERS.map((p) => {
+            const isOpen = expanded === p.id;
+            const hasNewKey = !!state.providers[p.id]?.trim();
+            const isAlreadyConfigured = configuredEnvVars.includes(p.envVar);
+            return (
+              <div key={p.id} className="border rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setExpanded(isOpen ? null : p.id)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <span className="text-sm font-medium text-gray-700">{p.name}</span>
+                  <div className="flex items-center gap-2">
+                    {hasNewKey && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                        待保存
+                      </span>
+                    )}
+                    {!hasNewKey && isAlreadyConfigured && (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                        已配置
+                      </span>
+                    )}
+                    <span className="text-gray-400 text-xs">{isOpen ? '\u25B2' : '\u25BC'}</span>
+                  </div>
+                </button>
+                {isOpen && (
+                  <div className="px-4 pb-3 border-t bg-gray-50">
+                    <label className="block text-xs text-gray-500 mt-2 mb-1">API Key</label>
+                    <input
+                      type="password"
+                      value={state.providers[p.id] ?? ''}
+                      onChange={(e) => setKey(p.id, e.target.value)}
+                      placeholder={isAlreadyConfigured ? '已配置（留空保持不变）' : `输入 ${p.name} API Key`}
+                      className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Divider ── */}
+      <div className="border-t" />
+
+      {/* ── Local Ollama ── */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">本地模型 (Ollama)</h3>
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`w-2.5 h-2.5 rounded-full ${ollamaHealthy ? 'bg-green-500' : 'bg-gray-300'}`} />
+          <span className="text-sm text-gray-600">
+            Ollama 状态：{ollamaHealthy ? '运行中' : '离线'}
+          </span>
+        </div>
+
+        {!ollamaHealthy ? (
+          <p className="text-xs text-gray-400">
+            Ollama 未运行。如需使用本地模型，请先从 Dashboard 安装 Ollama。
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Ollama Base URL</label>
+              <input
+                type="text"
+                value={state.ollama.baseUrl}
+                onChange={(e) => updateOllama('baseUrl', e.target.value)}
+                placeholder={ollamaEndpoint ?? 'http://ollama-svc:11434'}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:outline-none"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                OpenClaw 将通过此地址访问 Ollama，使用内网地址即可。
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">API Key（可选）</label>
+              <input
+                type="text"
+                value={state.ollama.apiKey}
+                onChange={(e) => updateOllama('apiKey', e.target.value)}
+                placeholder="ollama"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:outline-none"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

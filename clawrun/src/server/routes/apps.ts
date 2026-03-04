@@ -1,6 +1,7 @@
 import { Router, Request } from 'express';
 import { installApp, uninstallApp, getOlaresUsername } from '../services/app-manager';
 import { setVariant, setConnection } from '../services/ollama';
+import { setConnection as setOpenclawConnection } from '../services/openclaw';
 
 const router = Router();
 
@@ -35,17 +36,25 @@ const OLLAMA_VARIANTS: Record<string, { variant: 'cpu' | 'gpu'; svcName: string;
 router.post('/:name/install', async (req, res) => {
   try {
     const { bflUser, accessToken } = getAuthInfo(req);
-    const result = await installApp(req.params.name, req.body.repoUrl, bflUser, accessToken);
+    const { result, generatedEnvs } = await installApp(req.params.name, req.body.repoUrl, bflUser, accessToken);
     console.log('[install] result:', JSON.stringify(result));
+
+    const username = getOlaresUsername();
 
     // Auto-configure Ollama variant + endpoint after successful install
     const ollamaInfo = OLLAMA_VARIANTS[req.params.name];
     if (ollamaInfo) {
-      const username = getOlaresUsername();
       const ep = `http://${ollamaInfo.svcName}.${req.params.name}-${username}:${ollamaInfo.port}`;
       setVariant(ollamaInfo.variant);
       setConnection(ep);
       console.log(`[install] auto-configured ollama: variant=${ollamaInfo.variant}, endpoint=${ep}`);
+    }
+
+    // Auto-configure OpenClaw connection after successful install
+    if (req.params.name === 'openclaw' && generatedEnvs.OPENCLAW_GATEWAY_TOKEN) {
+      const ep = `http://openclaw-svc.openclaw-${username}:18789`;
+      setOpenclawConnection(ep, generatedEnvs.OPENCLAW_GATEWAY_TOKEN);
+      console.log(`[install] auto-configured openclaw: endpoint=${ep}`);
     }
 
     res.json(result);

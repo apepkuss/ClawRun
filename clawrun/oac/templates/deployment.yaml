@@ -21,6 +21,7 @@ spec:
         # can download chart tarballs without JWT auth check
         traffic.sidecar.istio.io/excludeInboundPorts: "3001"
     spec:
+      serviceAccountName: clawrun-labeler
       containers:
         - name: clawrun
           image: "apepkuss/clawrun:latest"

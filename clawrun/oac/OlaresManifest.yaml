@@ -6,7 +6,7 @@ metadata:
   description: Unified management UI for OpenClaw and Ollama
   icon: https://file.bttcdn.com/appstore/default/defaulticon.webp
   appid: clawrun
-  version: '0.1.0'
+  version: '0.1.1'
   title: ClawRun
   categories:
     - Utilities
@@ -39,7 +39,7 @@ permission:
         - UninstallDevApp
 
 spec:
-  versionName: '0.1.0'
+  versionName: '0.1.1'
   fullDescription: |
     ClawRun is a unified management UI for OpenClaw and Ollama on Olares.
     Monitor app status, manage Ollama models, and configure LLM providers

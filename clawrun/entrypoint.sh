@@ -8,4 +8,10 @@
 iptables-legacy -t nat -I PREROUTING -p tcp --dport 3001 -j RETURN 2>/dev/null || \
   iptables -t nat -I PREROUTING -p tcp --dport 3001 -j RETURN 2>/dev/null || true
 
+# Bypass Envoy outbound proxy for OpenClaw (port 18789)
+# so wget/curl calls to OpenClaw /api/config carry the Bearer token
+# without Envoy stripping or modifying the Authorization header.
+iptables-legacy -t nat -I OUTPUT -p tcp --dport 18789 -j RETURN 2>/dev/null || \
+  iptables -t nat -I OUTPUT -p tcp --dport 18789 -j RETURN 2>/dev/null || true
+
 exec node dist/server/index.js

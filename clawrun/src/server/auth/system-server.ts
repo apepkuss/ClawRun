@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { exec } from 'child_process';
 
 const { OS_SYSTEM_SERVER, OS_APP_KEY, OS_APP_SECRET } = process.env;
 
@@ -79,6 +80,7 @@ export async function callSystemServer(
 
 // 直接调用 app-service（绕过 BFL 和 system-server RBAC 代理）
 // 认证：X-Bfl-User 头（Olares 用户名），并转发用户 LLDAP JWT（x-access-token）
+// 使用 curl 替代 fetch — Node.js fetch (undici) 与 Olares Envoy iptables 不兼容
 export async function callAppService(
   bflUser: string,
   path: string,
@@ -94,31 +96,39 @@ export async function callAppService(
   const url = `http://${appServiceServer}:28080${path}`;
   console.log('[app-service]', method, url, '| hasToken:', !!accessToken);
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'X-Bfl-User': bflUser,
-  };
+  return new Promise((resolve, reject) => {
+    const headerArgs: string[] = [
+      '-H', `"Content-Type: application/json"`,
+      '-H', `"X-Bfl-User: ${bflUser}"`,
+    ];
 
-  // Forward the user's LLDAP JWT so app-service can validate the caller
-  if (accessToken) {
-    headers['X-Authorization'] = accessToken;
-    headers['Authorization'] = `Bearer ${accessToken}`;
-  }
+    if (accessToken) {
+      headerArgs.push('-H', `"X-Authorization: ${accessToken}"`);
+      headerArgs.push('-H', `"Authorization: Bearer ${accessToken}"`);
+    }
 
-  console.log('[app-service] sending headers:', Object.keys(headers).join(', '));
+    let dataArg = '';
+    if (body) {
+      const payload = JSON.stringify(body);
+      dataArg = `-d '${payload.replace(/'/g, "'\\''")}'`;
+    }
 
-  const res = await fetch(url, {
-    method,
-    headers,
-    ...(body ? { body: JSON.stringify(body) } : {}),
+    const cmd = `curl -s -S --max-time 30 -X ${method} ${headerArgs.join(' ')} ${dataArg} "${url}"`;
+    console.log('[app-service] curl cmd (redacted):', cmd.replace(/Bearer [^ "]+/, 'Bearer ***'));
+
+    exec(cmd, { timeout: 35000 }, (err, stdout, stderr) => {
+      if (stderr) console.log('[app-service] stderr:', stderr);
+      console.log('[app-service] stdout:', stdout.substring(0, 500));
+
+      if (err) {
+        return reject(new Error(`app-service call failed: ${err.message}\nstderr: ${stderr}`));
+      }
+
+      try {
+        resolve(JSON.parse(stdout));
+      } catch {
+        reject(new Error(`app-service non-JSON response: ${stdout}`));
+      }
+    });
   });
-
-  const text = await res.text();
-  console.log('[app-service] status:', res.status, 'body:', text);
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`app-service non-JSON response (${res.status}): ${text}`);
-  }
 }
