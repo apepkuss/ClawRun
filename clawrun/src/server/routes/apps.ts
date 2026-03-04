@@ -1,7 +1,7 @@
 import { Router, Request } from 'express';
 import { installApp, uninstallApp, getOlaresUsername } from '../services/app-manager';
 import { setVariant, setConnection } from '../services/ollama';
-import { setConnection as setOpenclawConnection } from '../services/openclaw';
+import { setConnection as setOpenclawConnection, clearConfig as clearOpenclawConfig } from '../services/openclaw';
 
 const router = Router();
 
@@ -70,7 +70,11 @@ router.post('/:name/uninstall', async (req, res) => {
     const { bflUser, accessToken } = getAuthInfo(req);
     const result = await uninstallApp(req.params.name, bflUser, accessToken);
 
-    // Clear Ollama variant + endpoint after uninstall
+    // Clear config after uninstall
+    if (req.params.name === 'openclaw') {
+      clearOpenclawConfig();
+      console.log('[uninstall] cleared openclaw config and wizard state');
+    }
     if (OLLAMA_VARIANTS[req.params.name]) {
       setVariant(null);
       setConnection('');

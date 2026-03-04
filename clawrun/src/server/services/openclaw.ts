@@ -164,3 +164,11 @@ export function isWizardCompleted(): boolean {
 export function markWizardCompleted() {
   saveConfig({ wizardCompleted: true });
 }
+
+export function clearConfig() {
+  const cfg = loadConfig();
+  delete cfg.openclaw;
+  delete cfg.wizardCompleted;
+  fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+}
