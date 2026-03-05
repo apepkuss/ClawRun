@@ -6,7 +6,74 @@ on:
       - 'v*'
 
 jobs:
+  # ── Build Docker images on native runners (no QEMU) ──
+  build-image:
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Package bundled charts
+        run: |
+          helm package openclaw/ -d clawrun/charts/
+          helm package ollama-cpu/oac/ -d clawrun/charts/
+
+      - name: Extract platform slug
+        id: slug
+        run: echo "slug=${PLATFORM//\//-}" >> "$GITHUB_OUTPUT"
+        env:
+          PLATFORM: ${{ matrix.platform }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: clawrun
+          platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=${{ steps.slug.outputs.slug }}
+          cache-to: type=gha,scope=${{ steps.slug.outputs.slug }},mode=max
+          outputs: type=image,name=apepkuss/clawrun,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ steps.slug.outputs.slug }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── Merge manifests and release ──
   release:
+    needs: build-image
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -23,9 +90,6 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
-      - name: Set up QEMU (for arm64 cross-build)
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -35,7 +99,23 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Sync version
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Create multi-platform manifest
+        working-directory: /tmp/digests
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          docker buildx imagetools create \
+            -t "apepkuss/clawrun:${VERSION}" \
+            -t "apepkuss/clawrun:latest" \
+            $(printf 'apepkuss/clawrun@sha256:%s ' *)
+
+      - name: Sync version in charts
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           sed -i "s|^version:.*|version: '${VERSION}'|"             clawrun/oac/Chart.yaml
@@ -43,23 +123,6 @@ jobs:
           sed -i "s|^  version:.*|  version: '${VERSION}'|"         clawrun/oac/OlaresManifest.yaml
           sed -i "s|^  versionName:.*|  versionName: '${VERSION}'|" clawrun/oac/OlaresManifest.yaml
           sed -i "s|image: \"apepkuss/clawrun:.*\"|image: \"apepkuss/clawrun:${VERSION}\"|" clawrun/oac/templates/deployment.yaml
-
-      - name: Package bundled charts
-        run: |
-          helm package openclaw/ -d clawrun/charts/
-          helm package ollama-cpu/oac/ -d clawrun/charts/
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: clawrun
-          platforms: linux/arm64,linux/amd64
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            apepkuss/clawrun:${{ steps.version.outputs.version }}
-            apepkuss/clawrun:latest
 
       - name: Package ClawRun OAC
         run: |
