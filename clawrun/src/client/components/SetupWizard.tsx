@@ -61,6 +61,18 @@ export function SetupWizard({ open, onClose, ollamaHealthy, ollamaEndpoint }: Pr
         configEntries.push({ key: 'agents.defaults.model', value: state.defaultModel.trim() });
       }
 
+      // Ollama provider config (must set complete provider object — OpenClaw validates models array)
+      if (state.useOllama && state.ollama.baseUrl) {
+        configEntries.push({
+          key: 'models.providers.ollama',
+          value: {
+            baseUrl: state.ollama.baseUrl,
+            apiKey: state.ollama.apiKey || 'ollama',
+            models: [],
+          },
+        });
+      }
+
       // Channel configs
       for (const ch of CHANNELS) {
         const vals = state.channels[ch.id];
@@ -92,6 +104,16 @@ export function SetupWizard({ open, onClose, ollamaHealthy, ollamaEndpoint }: Pr
           envPatch[p.envVar] = key;
         }
       }
+      // Enable Ollama provider via env var
+      if (state.useOllama) {
+        envPatch['OLLAMA_API_KEY'] = state.ollama.apiKey || 'ollama';
+      }
+
+      // 2b. Patch OpenClaw deployment to bypass outbound Envoy for Ollama (port 11434)
+      // Must happen BEFORE env patch — env patch triggers pod restart that picks up new command.
+      if (state.useOllama) {
+        await fetch('/api/openclaw/patch-bypass', { method: 'POST' });
+      }
 
       if (Object.keys(envPatch).length > 0) {
         const res = await fetch('/api/openclaw/env', {
@@ -102,6 +124,11 @@ export function SetupWizard({ open, onClose, ollamaHealthy, ollamaEndpoint }: Pr
         if (!res.ok) {
           throw new Error(`API Key 配置失败: ${res.status}`);
         }
+      }
+
+      // 3. Patch Ollama deployment to bypass inbound Envoy
+      if (state.useOllama) {
+        await fetch('/api/ollama/patch-bypass', { method: 'POST' });
       }
 
       // Mark wizard complete

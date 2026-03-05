@@ -267,6 +267,132 @@ export async function getIngressHost(
   });
 }
 
+/**
+ * Generic strategic merge patch on a Deployment.
+ */
+export async function patchDeployment(
+  namespace: string,
+  deploymentName: string,
+  patch: Record<string, unknown>,
+): Promise<boolean> {
+  if (!isInCluster()) return false;
+
+  const url = `${K8S_API}/apis/apps/v1/namespaces/${namespace}/deployments/${deploymentName}`;
+  const tmpFile = `/tmp/k8s-patch-${Date.now()}.json`;
+  writeFileSync(tmpFile, JSON.stringify(patch));
+
+  return new Promise((resolve) => {
+    const cmd = `curl -s --cacert ${CA_PATH} -H "Authorization: Bearer $(cat ${TOKEN_PATH})" -H "Content-Type: application/strategic-merge-patch+json" -X PATCH -d @${tmpFile} "${url}"`;
+    exec(cmd, { timeout: 15000 }, (err, stdout) => {
+      try { unlinkSync(tmpFile); } catch {}
+      if (err) {
+        console.error('[k8s] failed to patch Deployment:', err.message);
+        resolve(false);
+        return;
+      }
+      try {
+        const obj = JSON.parse(stdout);
+        if (obj.kind === 'Deployment') {
+          console.log(`[k8s] patched Deployment ${namespace}/${deploymentName}`);
+          resolve(true);
+        } else {
+          console.error('[k8s] patch failed:', JSON.stringify(obj).slice(0, 300));
+          resolve(false);
+        }
+      } catch {
+        console.error('[k8s] failed to parse patch response:', stdout.slice(0, 200));
+        resolve(false);
+      }
+    });
+  });
+}
+
+/**
+ * Patch a Deployment to override the container command and securityContext.
+ * Used to inject iptables bypass into third-party deployments (e.g., Ollama, OpenClaw).
+ */
+export async function patchDeploymentCommand(
+  namespace: string,
+  deploymentName: string,
+  containerName: string,
+  command: string[],
+  args: string[],
+  securityContext?: Record<string, unknown>,
+  image?: string,
+): Promise<boolean> {
+  if (!isInCluster()) return false;
+
+  const url = `${K8S_API}/apis/apps/v1/namespaces/${namespace}/deployments/${deploymentName}`;
+  const containerPatch: Record<string, unknown> = { name: containerName, command, args };
+  if (securityContext) {
+    containerPatch.securityContext = securityContext;
+  }
+  if (image) {
+    containerPatch.image = image;
+  }
+  const patch = {
+    spec: { template: { spec: { containers: [containerPatch] } } },
+  };
+
+  const tmpFile = `/tmp/k8s-patch-${Date.now()}.json`;
+  writeFileSync(tmpFile, JSON.stringify(patch));
+
+  return new Promise((resolve) => {
+    const cmd = `curl -s --cacert ${CA_PATH} -H "Authorization: Bearer $(cat ${TOKEN_PATH})" -H "Content-Type: application/strategic-merge-patch+json" -X PATCH -d @${tmpFile} "${url}"`;
+    exec(cmd, { timeout: 15000 }, (err, stdout) => {
+      try { unlinkSync(tmpFile); } catch {}
+      if (err) {
+        console.error('[k8s] failed to patch Deployment command:', err.message);
+        resolve(false);
+        return;
+      }
+      try {
+        const obj = JSON.parse(stdout);
+        if (obj.kind === 'Deployment') {
+          console.log(`[k8s] patched Deployment ${namespace}/${deploymentName} command + capabilities`);
+          resolve(true);
+        } else {
+          console.error('[k8s] patch command failed:', JSON.stringify(obj).slice(0, 300));
+          resolve(false);
+        }
+      } catch {
+        console.error('[k8s] failed to parse patch response:', stdout.slice(0, 200));
+        resolve(false);
+      }
+    });
+  });
+}
+
+/**
+ * Label a namespace via strategic merge patch.
+ */
+export async function labelNamespace(
+  namespace: string,
+  labels: Record<string, string>,
+): Promise<boolean> {
+  if (!isInCluster()) return false;
+
+  const url = `${K8S_API}/api/v1/namespaces/${namespace}`;
+  const patch = JSON.stringify({ metadata: { labels } });
+
+  return new Promise((resolve) => {
+    const cmd = `curl -s --cacert ${CA_PATH} -H "Authorization: Bearer $(cat ${TOKEN_PATH})" -H "Content-Type: application/strategic-merge-patch+json" -X PATCH -d '${patch}' "${url}"`;
+    exec(cmd, { timeout: 10000 }, (err, stdout) => {
+      if (err) {
+        console.error('[k8s] failed to label namespace:', err.message);
+        resolve(false);
+        return;
+      }
+      try {
+        const obj = JSON.parse(stdout);
+        resolve(obj.kind === 'Namespace');
+      } catch {
+        resolve(false);
+      }
+    });
+  });
+}
+
 export async function getAppManagerState(appName: string, username: string): Promise<AppManagerInfo> {
   if (!isInCluster()) return { state: null, progress: null };
 

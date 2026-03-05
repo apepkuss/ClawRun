@@ -1,0 +1,7 @@
+FROM alpine/openclaw:2026.3.2
+USER root
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends iptables && \
+    rm -rf /var/lib/apt/lists/* && \
+    touch /run/xtables.lock && chmod 666 /run/xtables.lock
+USER node

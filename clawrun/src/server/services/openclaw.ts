@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { exec } from 'child_process';
-import { getDeploymentEnvVar, getDeploymentEnvVars, patchDeploymentEnvVarsBoth } from './k8s';
+import { getDeploymentEnvVar, getDeploymentEnvVars, patchDeploymentEnvVarsBoth, patchDeployment, labelNamespace } from './k8s';
 
 const CONFIG_FILE = '/app/data/config.json';
 
@@ -61,44 +61,24 @@ export async function checkHealth(): Promise<boolean> {
   });
 }
 
-// Use wget instead of curl/fetch — both Node.js fetch (undici) and curl are
-// incompatible with Olares Envoy iptables interception for cross-namespace calls.
-export async function getConfig(): Promise<unknown> {
-  if (!endpoint) throw new Error('OpenClaw endpoint not configured');
-  return new Promise((resolve, reject) => {
-    const url = `${endpoint}/api/config`;
+// Set OpenClaw config via kubectl exec (OpenClaw has no REST /api/config endpoint).
+// Runs `node dist/index.js config set <key> <value>` inside the OpenClaw pod.
+// Config is persisted to hostPath volume (/home/node/.openclaw/config.json).
+export async function setConfigViaExec(username: string, key: string, value: string): Promise<boolean> {
+  const ns = `openclaw-${username}`;
+  const escaped = value.replace(/'/g, "'\\''");
+  return new Promise((resolve) => {
     exec(
-      `wget -q -O - --header="Authorization: Bearer ${token}" --timeout=10 "${url}"`,
-      { timeout: 12000 },
-      (err, stdout) => {
-        if (err) return reject(new Error(`OpenClaw getConfig failed: ${err.message}`));
-        try {
-          resolve(JSON.parse(stdout));
-        } catch {
-          reject(new Error(`OpenClaw getConfig: invalid JSON response`));
+      `kubectl exec -n ${ns} deploy/openclaw -c openclaw -- node dist/index.js config set ${key} '${escaped}'`,
+      { timeout: 15000 },
+      (err, _stdout, stderr) => {
+        if (err) {
+          console.error(`[openclaw] config set ${key} failed:`, stderr || err.message);
+          resolve(false);
+          return;
         }
-      },
-    );
-  });
-}
-
-export async function setConfig(key: string, value: unknown): Promise<unknown> {
-  if (!endpoint) throw new Error('OpenClaw endpoint not configured');
-  return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({ key, value });
-    const url = `${endpoint}/api/config`;
-    // Write payload to temp file to avoid shell quoting issues, then POST via wget
-    const tmpFile = `/tmp/openclaw-post-${Date.now()}.json`;
-    exec(
-      `printf '%s' '${payload.replace(/'/g, "'\\''")}' > ${tmpFile} && wget -q -O - --header="Authorization: Bearer ${token}" --header="Content-Type: application/json" --post-file=${tmpFile} --timeout=10 "${url}"; rm -f ${tmpFile}`,
-      { timeout: 12000 },
-      (err, stdout) => {
-        if (err) return reject(new Error(`OpenClaw setConfig failed: ${err.message}`));
-        try {
-          resolve(JSON.parse(stdout));
-        } catch {
-          resolve({ ok: true });
-        }
+        console.log(`[openclaw] config set ${key} ok`);
+        resolve(true);
       },
     );
   });
@@ -163,6 +143,58 @@ export function isWizardCompleted(): boolean {
 
 export function markWizardCompleted() {
   saveConfig({ wizardCompleted: true });
+}
+
+// Patch OpenClaw deployment to bypass Envoy for inbound (18789) and outbound (11434).
+// Uses a trusted sidecar (beclab/init — same as olares-sidecar-init) running as root
+// to set iptables RETURN rules.  The main container waits for a readiness signal.
+// Non-root users cannot run iptables even with NET_ADMIN, and OPA blocks root for
+// untrusted registries, so the trusted sidecar is the only viable approach.
+
+export async function patchOutboundBypass(username: string): Promise<boolean> {
+  const ns = `openclaw-${username}`;
+
+  // Ensure OpenClaw namespace has the label required by Ollama's NetworkPolicy
+  await labelNamespace(ns, { 'bytetrade.io/ns-type': 'user-internal' });
+
+  // Main container: wait for sidecar to finish iptables setup, then start OpenClaw
+  const mainScript =
+    'while [ ! -f /iptables-ready/done ]; do sleep 0.5; done; ' +
+    'exec node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured';
+
+  // Sidecar: set iptables rules as root, signal readiness, then idle
+  const sidecarScript =
+    'iptables-legacy -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || ' +
+    'iptables -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || true; ' +
+    'iptables-legacy -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || ' +
+    'iptables -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || true; ' +
+    'touch /iptables-ready/done; sleep infinity';
+
+  return patchDeployment(ns, 'openclaw', {
+    spec: {
+      template: {
+        spec: {
+          containers: [
+            {
+              name: 'openclaw',
+              command: ['sh', '-c'],
+              args: [mainScript],
+              volumeMounts: [{ name: 'iptables-ready', mountPath: '/iptables-ready' }],
+            },
+            {
+              name: 'iptables-bypass',
+              image: 'beclab/init:v1.2.3',
+              command: ['sh', '-c'],
+              args: [sidecarScript],
+              securityContext: { runAsUser: 0, capabilities: { add: ['NET_ADMIN'] } },
+              volumeMounts: [{ name: 'iptables-ready', mountPath: '/iptables-ready' }],
+            },
+          ],
+          volumes: [{ name: 'iptables-ready', emptyDir: {} }],
+        },
+      },
+    },
+  });
 }
 
 export function clearConfig() {

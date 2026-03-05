@@ -63,18 +63,19 @@ spec:
               mountPath: /home/node/.openclaw
       containers:
         - name: openclaw
-          image: "alpine/openclaw:2026.3.2"
-          # Bypass Olares Envoy sidecar for port 18789 so ClawRun can
-          # call OpenClaw /api/config without Authelia auth headers.
-          # Must run in entrypoint (not init container) to execute AFTER
+          # Custom image with iptables pre-installed (official image is Debian-based, no apk).
+          # OPA blocks untrusted images running as root, so iptables is baked into the image.
+          image: "apepkuss/openclaw:2026.3.2-olares"
+          # Bypass Olares Envoy sidecar: must run in entrypoint AFTER
           # olares-sidecar-init sets up iptables REDIRECT rules.
           command:
             - sh
             - "-c"
             - |
-              (apk add --no-cache iptables iptables-legacy 2>/dev/null || true)
               iptables-legacy -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || \
                 iptables -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || true
+              iptables-legacy -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || \
+                iptables -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || true
               exec node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured
           securityContext:
             capabilities:

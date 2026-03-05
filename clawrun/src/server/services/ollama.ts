@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { exec, spawn } from 'child_process';
+import { patchDeploymentCommand } from './k8s';
 const CONFIG_FILE = '/app/data/config.json';
 
 // Derive Olares username from OS_SYSTEM_SERVER env var
@@ -320,6 +321,29 @@ export async function deleteModel(name: string): Promise<unknown> {
   const { ok, body } = await kubectlExec(['ollama', 'rm', name], 35000);
   if (!ok && body) throw new Error(`Ollama delete failed: ${body.slice(0, 300)}`);
   return { ok: true };
+}
+
+// --- Patch Ollama deployment to bypass inbound Envoy ---
+
+export async function patchInboundBypass(): Promise<boolean> {
+  const target = getOllamaK8sTarget();
+  if (!target) throw new Error('Ollama variant not configured');
+
+  // Override the Ollama container command to:
+  // 1. Install iptables (Ubuntu-based image)
+  // 2. Add PREROUTING RETURN rule for port 11434 (bypasses Envoy inbound auth)
+  // 3. exec the original entrypoint (/bin/ollama serve)
+  const script =
+    'apt-get update -qq 2>/dev/null; apt-get install -y -qq --no-install-recommends iptables >/dev/null 2>&1 || true; ' +
+    'iptables-legacy -t nat -I PREROUTING -p tcp --dport 11434 -j RETURN 2>/dev/null || ' +
+    'iptables -t nat -I PREROUTING -p tcp --dport 11434 -j RETURN 2>/dev/null || true; ' +
+    'exec /bin/ollama serve';
+
+  return patchDeploymentCommand(
+    target.namespace, target.deployment, target.deployment,
+    ['sh', '-c'], [script],
+    { capabilities: { add: ['NET_ADMIN'] } },
+  );
 }
 
 // --- Ollama library (remote model catalog) ---

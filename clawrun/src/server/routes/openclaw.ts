@@ -25,36 +25,24 @@ router.get('/health', async (_req, res) => {
   res.json({ healthy });
 });
 
-// GET /api/openclaw/config
-router.get('/config', async (_req, res) => {
-  try {
-    const config = await openclaw.getConfig();
-    res.json(config);
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
-
-// POST /api/openclaw/config   body: { key, value }
-router.post('/config', async (req, res) => {
-  try {
-    const result = await openclaw.setConfig(req.body.key, req.body.value);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
-
 // POST /api/openclaw/config/batch   body: { entries: [{ key, value }] }
+// Sets config via kubectl exec → `node dist/index.js config set` inside OpenClaw pod.
 router.post('/config/batch', async (req, res) => {
   try {
     const { entries } = req.body as { entries: { key: string; value: unknown }[] };
-    const results = [];
+    const username = getOlaresUsername();
+    const results: boolean[] = [];
     for (const entry of entries) {
-      const result = await openclaw.setConfig(entry.key, entry.value);
-      results.push(result);
+      const val = typeof entry.value === 'string' ? entry.value : JSON.stringify(entry.value);
+      const ok = await openclaw.setConfigViaExec(username, entry.key, val);
+      results.push(ok);
     }
-    res.json({ ok: true, results });
+    const allOk = results.every(Boolean);
+    if (allOk) {
+      res.json({ ok: true });
+    } else {
+      res.status(500).json({ error: 'Some config entries failed to apply' });
+    }
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -87,6 +75,17 @@ router.post('/env', async (req, res) => {
 // GET /api/openclaw/wizard-status
 router.get('/wizard-status', (_req, res) => {
   res.json({ completed: openclaw.isWizardCompleted() });
+});
+
+// POST /api/openclaw/patch-bypass — patch OpenClaw deployment to add outbound Envoy bypass for Ollama
+router.post('/patch-bypass', async (_req, res) => {
+  const username = getOlaresUsername();
+  const ok = await openclaw.patchOutboundBypass(username);
+  if (ok) {
+    res.json({ ok: true });
+  } else {
+    res.status(500).json({ error: 'Failed to patch OpenClaw deployment' });
+  }
 });
 
 // POST /api/openclaw/wizard-complete

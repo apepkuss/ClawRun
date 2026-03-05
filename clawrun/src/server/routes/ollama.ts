@@ -77,4 +77,14 @@ router.get('/models/pull/status', (req, res) => {
   res.json({ active: true, ...status });
 });
 
+// POST /api/ollama/patch-bypass — patch Ollama deployment to bypass inbound Envoy
+router.post('/patch-bypass', async (_req, res) => {
+  try {
+    const ok = await ollama.patchInboundBypass();
+    res.json({ ok });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 export default router;
