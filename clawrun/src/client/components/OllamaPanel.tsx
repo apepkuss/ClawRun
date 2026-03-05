@@ -16,9 +16,10 @@ interface ModelTag {
 
 interface Props {
   healthy: boolean;
+  onModelsChange?: () => void;
 }
 
-export function OllamaPanel({ healthy }: Props) {
+export function OllamaPanel({ healthy, onModelsChange }: Props) {
   const [models, setModels] = useState<Model[]>([]);
   const [library, setLibrary] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -112,6 +113,7 @@ export function OllamaPanel({ healthy }: Props) {
       if (!res.ok) throw new Error();
       setMessage(`${name} 已删除`); setMessageOk(true);
       setRefreshKey((k) => k + 1);
+      onModelsChange?.();
     } catch {
       setMessage(`删除 ${name} 失败`); setMessageOk(false);
     }
@@ -161,6 +163,7 @@ export function OllamaPanel({ healthy }: Props) {
       await poll();
       setMessage(`${name} 拉取完成`); setMessageOk(true);
       setRefreshKey((k) => k + 1);
+      onModelsChange?.();
       setSelectedModel(''); setSearchText(''); setTags([]);
     } catch (e) {
       setMessage(`拉取失败：${e instanceof Error ? e.message : '请检查模型名称'}`); setMessageOk(false);

@@ -132,7 +132,7 @@ export function SetupWizard({ open, onClose, ollamaHealthy, ollamaEndpoint }: Pr
               ollamaEndpoint={ollamaEndpoint}
             />
           )}
-          {step === 1 && <StepDefaultModel state={state} onChange={setState} />}
+          {step === 1 && <StepDefaultModel state={state} onChange={setState} ollamaHealthy={ollamaHealthy} />}
           {step === 2 && <StepChannels state={state} onChange={setState} />}
 
           {error && (
