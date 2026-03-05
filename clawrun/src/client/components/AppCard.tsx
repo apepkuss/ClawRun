@@ -90,8 +90,16 @@ export function AppCard({ name, healthy, endpoint, installState, installProgress
       )}
       <div className="flex flex-col gap-2 mt-1">
         {isFailed ? (
-          /* Failed state → show error message */
-          <p className="text-xs text-red-500">{stateInfo!.text}，请检查 Olares 应用市场确认状态</p>
+          /* Failed state → show error message + uninstall */
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-red-500">{stateInfo!.text}，请检查 Olares 应用市场确认状态</p>
+            <button
+              onClick={onUninstall}
+              className="w-full text-sm py-1.5 rounded-lg border border-red-400 text-red-500 hover:bg-red-50"
+            >
+              卸载
+            </button>
+          </div>
         ) : (isInProgress || busy || (isRunningCrd && !healthy)) ? (
           /* In progress → show progress bar */
           (() => {

@@ -66,24 +66,31 @@ router.post('/:name/install', async (req, res) => {
 
 // POST /api/apps/:name/uninstall
 router.post('/:name/uninstall', async (req, res) => {
-  try {
-    const { bflUser, accessToken } = getAuthInfo(req);
-    const result = await uninstallApp(req.params.name, bflUser, accessToken);
+  const appName = req.params.name;
 
-    // Clear config after uninstall
-    if (req.params.name === 'openclaw') {
+  // Always clear local config regardless of app-service result,
+  // so a failed install doesn't leave the card in a deadlocked state.
+  function clearLocalConfig() {
+    if (appName === 'openclaw') {
       clearOpenclawConfig();
       console.log('[uninstall] cleared openclaw config and wizard state');
     }
-    if (OLLAMA_VARIANTS[req.params.name]) {
+    if (OLLAMA_VARIANTS[appName]) {
       setVariant(null);
       setConnection('');
       console.log('[uninstall] cleared ollama variant and endpoint');
     }
+  }
 
+  try {
+    const { bflUser, accessToken } = getAuthInfo(req);
+    const result = await uninstallApp(appName, bflUser, accessToken);
+    clearLocalConfig();
     res.json(result);
   } catch (err) {
     console.error('[uninstall] error:', String(err));
+    // Still clear local config so the UI can recover
+    clearLocalConfig();
     res.status(500).json({ error: String(err) });
   }
 });
