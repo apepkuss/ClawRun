@@ -133,8 +133,7 @@ export function AppCard({ name, healthy, endpoint, installState, installProgress
             )}
             <button
               onClick={onUninstall}
-              disabled={!healthy}
-              className="flex-1 text-sm py-1.5 rounded-lg border border-red-400 text-red-500 hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 text-sm py-1.5 rounded-lg border border-red-400 text-red-500 hover:bg-red-50"
             >
               卸载
             </button>
