@@ -166,6 +166,13 @@ export function markWizardCompleted() {
 }
 
 export function clearConfig() {
+  // Reset in-memory state so status polling won't restore the config
+  endpoint = '';
+  token = '';
+  uiUrl = '';
+  lastTokenSync = 0;
+
+  // Clear persisted config
   const cfg = loadConfig();
   delete cfg.openclaw;
   delete cfg.wizardCompleted;
