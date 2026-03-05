@@ -88,10 +88,16 @@ router.post('/:name/uninstall', async (req, res) => {
     clearLocalConfig();
     res.json(result);
   } catch (err) {
-    console.error('[uninstall] error:', String(err));
-    // Still clear local config so the UI can recover
+    const msg = String(err);
+    console.error('[uninstall] error:', msg);
     clearLocalConfig();
-    res.status(500).json({ error: String(err) });
+    // "uninstalled state" means the app is already gone — treat as success
+    if (msg.includes('uninstalled state') || msg.includes('not installed')) {
+      console.log('[uninstall] app already uninstalled, treating as success');
+      res.json({ code: 200, message: 'already uninstalled' });
+    } else {
+      res.status(500).json({ error: msg });
+    }
   }
 });
 

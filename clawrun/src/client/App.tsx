@@ -132,20 +132,17 @@ export default function App() {
       if (!res.ok) {
         const text = await res.text();
         alert(`卸载 ${name} 失败 (${res.status}): ${text}`);
-        setBusy(name, null);
-        return;
-      }
-      const data = await res.json();
-      if (isAppServiceError(data)) {
-        alert(`卸载 ${name} 失败: ${data.message || JSON.stringify(data)}`);
-        setBusy(name, null);
-        return;
+      } else {
+        const data = await res.json();
+        if (isAppServiceError(data)) {
+          alert(`卸载 ${name} 失败: ${data.message || JSON.stringify(data)}`);
+        }
       }
     } catch (err) {
       alert(`卸载 ${name} 请求异常: ${String(err)}`);
-      setBusy(name, null);
-      return;
     }
+    // Always refresh — server clears local config even on failure
+    setBusy(name, null);
     setFastPoll(true);
     refresh();
   }
