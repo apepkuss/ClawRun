@@ -15,6 +15,7 @@ export default function App() {
   const [showWizard, setShowWizard] = useState(false);
   const [wizardChecked, setWizardChecked] = useState(false);
   const [busyApps, setBusyApps] = useState<Record<string, string>>({});
+  const [ollamaRefreshKey, setOllamaRefreshKey] = useState(0);
 
   // Clear brief busy state once CRD installState takes over
   useEffect(() => {
@@ -286,7 +287,7 @@ export default function App() {
                   />
                 </div>
                 <div className="bg-white border rounded-xl p-5 shadow-sm">
-                  <OllamaPanel healthy={status?.ollama.healthy ?? false} />
+                  <OllamaPanel key={ollamaRefreshKey} healthy={status?.ollama.healthy ?? false} listOnly />
                 </div>
               </>
             )}
@@ -299,6 +300,7 @@ export default function App() {
         onClose={() => {
           setShowWizard(false);
           refresh();
+          setOllamaRefreshKey((k) => k + 1);
         }}
         ollamaHealthy={status?.ollama.healthy ?? false}
         ollamaEndpoint={status?.ollama.endpoint ?? null}

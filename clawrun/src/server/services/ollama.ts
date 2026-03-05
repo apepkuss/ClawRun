@@ -4,6 +4,12 @@ import crypto from 'crypto';
 import { exec, spawn } from 'child_process';
 const CONFIG_FILE = '/app/data/config.json';
 
+// Derive Olares username from OS_SYSTEM_SERVER env var
+function getUsername(): string {
+  const systemServer = process.env.OS_SYSTEM_SERVER ?? '';
+  return systemServer.split('user-system-')[1] ?? 'unknown';
+}
+
 function loadConfig(): Record<string, unknown> {
   try {
     return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
@@ -66,8 +72,66 @@ export function autoConfigureUiUrl(baseDomain: string, v: OllamaVariant): void {
   console.log(`[ollama] auto-configured uiUrl: ${expected}`);
 }
 
-// HTTP helper using curl. curl sends proper HTTP/1.1 headers that pass through Olares Envoy sidecar.
-// Uses external commands instead of fetch because Node.js undici is incompatible with Olares Envoy iptables.
+// --- kubectl exec helpers ---
+// All Ollama API calls go through kubectl exec to bypass Envoy sidecar auth.
+// Inside the Ollama pod, localhost:11434 is always accessible without auth.
+
+function getOllamaK8sTarget(): { namespace: string; deployment: string } | null {
+  if (!variant) return null;
+  const user = getUsername();
+  if (variant === 'cpu') {
+    return { namespace: `ollama-cpu-${user}`, deployment: 'ollama-cpu' };
+  }
+  return { namespace: `ollama-${user}`, deployment: 'ollama' };
+}
+
+function kubectlExec(command: string[], timeout = 30000): Promise<{ ok: boolean; body: string }> {
+  return new Promise((resolve) => {
+    const target = getOllamaK8sTarget();
+    if (!target) {
+      resolve({ ok: false, body: 'Ollama variant not configured' });
+      return;
+    }
+    const args = [
+      'exec', '-n', target.namespace,
+      `deploy/${target.deployment}`,
+      '-c', target.deployment,  // specify container (pod has envoy sidecar)
+      '--',
+      ...command,
+    ];
+
+    let stdout = '';
+    let stderr = '';
+    const proc = spawn('kubectl', args);
+
+    const timer = setTimeout(() => {
+      proc.kill();
+      resolve({ ok: false, body: `kubectl exec timed out (${timeout}ms)` });
+    }, timeout);
+
+    proc.stdout?.on('data', (chunk: Buffer) => { stdout += chunk.toString(); });
+    proc.stderr?.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        console.error(`[ollama] kubectl exec failed (exit ${code}):`, stderr.slice(0, 300));
+        resolve({ ok: false, body: stderr || stdout });
+      } else {
+        resolve({ ok: true, body: stdout });
+      }
+    });
+
+    proc.on('error', (err) => {
+      clearTimeout(timer);
+      console.error(`[ollama] kubectl exec error:`, err.message);
+      resolve({ ok: false, body: err.message });
+    });
+  });
+}
+
+// --- HTTP helper for external requests (ollama.com library/tags) ---
+
 function httpReq(url: string, opts?: { method?: string; body?: string; timeout?: number }): Promise<{ ok: boolean; body: string }> {
   return new Promise((resolve) => {
     const method = opts?.method ?? 'GET';
@@ -87,22 +151,50 @@ function httpReq(url: string, opts?: { method?: string; body?: string; timeout?:
   });
 }
 
-// Health check via curl — any HTTP response (including 400 from Envoy sidecar) means alive
+// --- Ollama API via kubectl exec ---
+
 export async function checkStatus(): Promise<boolean> {
-  if (!endpoint) return false;
+  const target = getOllamaK8sTarget();
+  if (!target) return false;
+  // Use kubectl get deploy (existing RBAC) instead of kubectl exec (requires pods/exec RBAC)
   return new Promise((resolve) => {
     exec(
-      `curl -s -S -o /dev/null -D - --max-time 5 "${endpoint}/api/tags" 2>&1`,
+      `kubectl get deploy/${target.deployment} -n ${target.namespace} -o jsonpath='{.status.readyReplicas}'`,
       { timeout: 10000 },
-      (_err, stdout) => resolve(stdout.includes('HTTP/')),
+      (_err: unknown, stdout: string) => {
+        const ready = parseInt(stdout.replace(/'/g, ''), 10);
+        resolve(ready > 0);
+      },
     );
   });
 }
 
 export async function listModels(): Promise<unknown> {
-  const { ok, body } = await httpReq(`${endpoint}/api/tags`);
-  if (!ok) throw new Error(`Ollama listModels failed`);
-  return JSON.parse(body);
+  const target = getOllamaK8sTarget();
+  if (!target) throw new Error('Ollama variant not configured');
+  const { ok, body } = await kubectlExec(['ollama', 'list'], 15000);
+  if (!ok) throw new Error(`Ollama listModels failed: ${body.slice(0, 300)}`);
+
+  // Parse "ollama list" text output into /api/tags compatible format
+  // Format: NAME  ID  SIZE  MODIFIED
+  const lines = body.trim().split('\n');
+  const models: Array<{ name: string; model: string; size: number; details: Record<string, unknown> }> = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(/\s{2,}/);
+    if (cols.length < 3) continue;
+    const name = cols[0].trim();
+    const sizeStr = cols[2]?.trim() ?? '';
+    let size = 0;
+    const sm = sizeStr.match(/([\d.]+)\s*(KB|MB|GB|TB)/i);
+    if (sm) {
+      const n = parseFloat(sm[1]);
+      const u = sm[2].toUpperCase();
+      const mult: Record<string, number> = { KB: 1024, MB: 1048576, GB: 1073741824, TB: 1099511627776 };
+      size = Math.round(n * (mult[u] ?? 1));
+    }
+    models.push({ name, model: name, size, details: {} });
+  }
+  return { models };
 }
 
 // --- Pull jobs (polling-based progress tracking) ---
@@ -124,86 +216,110 @@ export function getPullStatus(name: string): PullProgress | null {
 }
 
 export function startPull(name: string): void {
-  // Initialize job
+  const target = getOllamaK8sTarget();
+  if (!target) {
+    pullJobs.set(name, { status: 'error', percent: -1, done: true, success: false, error: 'Ollama variant not configured' });
+    return;
+  }
+
   pullJobs.set(name, { status: '准备中…', percent: -1, done: false, success: false });
 
-  const proc = spawn('curl', [
-    '-s', '-S', '-N',
-    '-X', 'POST',
-    '-H', 'Content-Type: application/json',
-    '-d', JSON.stringify({ name }),
-    `${endpoint}/api/pull`,
-  ]);
+  // Use "ollama pull" CLI inside Ollama pod (no curl needed)
+  const args = [
+    'exec', '-n', target.namespace,
+    `deploy/${target.deployment}`,
+    '-c', target.deployment,
+    '--',
+    'ollama', 'pull', name,
+  ];
+  const proc = spawn('kubectl', args);
 
   let buffer = '';
+  let stderrBuf = '';
 
-  function processLine(line: string) {
-    if (!line.trim()) return;
-    try {
-      const d = JSON.parse(line) as {
-        status?: string; total?: number; completed?: number;
-        error?: string;
-      };
-      const job = pullJobs.get(name);
-      if (!job || job.done) return;
-      if (d.error) {
-        job.error = d.error;
-        job.status = 'error';
-      }
-      if (d.status === 'success') {
-        job.success = true;
-        job.done = true;
-        job.status = 'success';
-        job.percent = 100;
-      } else if (d.status) {
-        job.status = d.status;
-      }
-      if (d.total && d.total > 0 && d.completed != null) {
-        job.total = d.total;
-        job.completed = d.completed;
-        job.percent = Math.round((d.completed / d.total) * 100);
-      }
-    } catch { /* skip unparseable */ }
+  function processChunk(text: string) {
+    const job = pullJobs.get(name);
+    if (!job || job.done) return;
+
+    // ollama pull outputs lines like:
+    //   pulling manifest
+    //   pulling abc123...  45% ▕██...▏ 1.2 GB/2.0 GB
+    //   verifying sha256 digest
+    //   writing manifest
+    //   success
+    const lower = text.toLowerCase();
+    if (lower.includes('success')) {
+      job.success = true;
+      job.done = true;
+      job.status = 'success';
+      job.percent = 100;
+      return;
+    }
+    if (lower.includes('error') || lower.includes('failed')) {
+      job.error = text.trim();
+      job.status = 'error';
+      return;
+    }
+    // Extract percentage
+    const pctMatch = text.match(/(\d+)%/);
+    if (pctMatch) {
+      job.percent = parseInt(pctMatch[1], 10);
+    }
+    // Extract size info (e.g. "1.2 GB/2.0 GB")
+    const sizeMatch = text.match(/([\d.]+\s*[KMGT]B)\s*\/\s*([\d.]+\s*[KMGT]B)/i);
+    if (sizeMatch) {
+      job.status = `${sizeMatch[1]} / ${sizeMatch[2]}`;
+    } else {
+      // Use text as status (e.g. "pulling manifest", "verifying sha256 digest")
+      const clean = text.replace(/[▕▏█░\s]+/g, ' ').trim().slice(0, 80);
+      if (clean) job.status = clean;
+    }
   }
 
   proc.stdout?.on('data', (chunk: Buffer) => {
     buffer += chunk.toString();
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
-    for (const line of lines) processLine(line);
+    // Split on \n or \r (ollama uses \r for in-place progress updates)
+    const parts = buffer.split(/[\r\n]+/);
+    buffer = parts.pop() ?? '';
+    for (const part of parts) {
+      if (part.trim()) processChunk(part);
+    }
   });
 
   proc.stderr?.on('data', (chunk: Buffer) => {
-    const msg = chunk.toString().trim();
-    if (msg) {
-      const job = pullJobs.get(name);
-      if (job && !job.done) {
-        job.error = msg;
-      }
+    stderrBuf += chunk.toString();
+    // ollama pull may write progress to stderr too
+    const parts = stderrBuf.split(/[\r\n]+/);
+    stderrBuf = parts.pop() ?? '';
+    for (const part of parts) {
+      if (part.trim()) processChunk(part);
     }
   });
 
   proc.on('close', (code: number | null) => {
-    if (buffer.trim()) processLine(buffer);
+    if (buffer.trim()) processChunk(buffer);
+    if (stderrBuf.trim()) processChunk(stderrBuf);
     const job = pullJobs.get(name);
     if (job && !job.done) {
       job.done = true;
-      if (!job.success) {
-        job.error = job.error || `curl exited with code ${code}`;
+      if (code === 0 && !job.error) {
+        job.success = true;
+        job.percent = 100;
+        job.status = 'success';
+      } else if (!job.success) {
+        job.error = job.error || `pull failed (exit ${code})`;
       }
     }
-    // Clean up after 5 minutes
     setTimeout(() => pullJobs.delete(name), 5 * 60 * 1000);
   });
 }
 
 export async function deleteModel(name: string): Promise<unknown> {
-  const { ok, body } = await httpReq(`${endpoint}/api/delete`, {
-    method: 'DELETE',
-    body: JSON.stringify({ name }),
-  });
-  if (!ok) throw new Error(`Ollama delete failed`);
-  try { return JSON.parse(body); } catch { return { ok: true }; }
+  const target = getOllamaK8sTarget();
+  if (!target) throw new Error('Ollama variant not configured');
+  const { ok, body } = await kubectlExec(['ollama', 'rm', name], 35000);
+  if (!ok && body) throw new Error(`Ollama delete failed: ${body.slice(0, 300)}`);
+  return { ok: true };
 }
 
 // --- Ollama library (remote model catalog) ---

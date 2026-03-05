@@ -15,7 +15,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-RUN apk add --no-cache iptables iptables-legacy curl wget
+RUN apk add --no-cache iptables iptables-legacy curl wget \
+    && ARCH=$(uname -m | sed 's/aarch64/arm64/' | sed 's/x86_64/amd64/') \
+    && curl -Lo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl" \
+    && chmod +x /usr/local/bin/kubectl
 
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev

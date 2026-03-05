@@ -18,7 +18,7 @@ export function StepDefaultModel({ state, onChange, ollamaHealthy }: Props) {
   const [installedModels, setInstalledModels] = useState<OllamaModel[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const ollamaConfigured = ollamaHealthy && state.ollama.baseUrl.trim();
+  const ollamaConfigured = state.useOllama && ollamaHealthy && state.ollama.baseUrl.trim();
 
   // Fetch installed Ollama models
   useEffect(() => {

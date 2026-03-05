@@ -17,9 +17,10 @@ interface ModelTag {
 interface Props {
   healthy: boolean;
   onModelsChange?: () => void;
+  listOnly?: boolean;
 }
 
-export function OllamaPanel({ healthy, onModelsChange }: Props) {
+export function OllamaPanel({ healthy, onModelsChange, listOnly }: Props) {
   const [models, setModels] = useState<Model[]>([]);
   const [library, setLibrary] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -176,6 +177,37 @@ export function OllamaPanel({ healthy, onModelsChange }: Props) {
 
   if (!healthy) {
     return <p className="text-sm text-gray-400">Ollama 离线，请先配置端点</p>;
+  }
+
+  // List-only mode: only show installed models with delete buttons
+  if (listOnly) {
+    return (
+      <div className="flex flex-col gap-3">
+        <h3 className="font-medium text-gray-700">已安装模型</h3>
+        {models.length === 0 ? (
+          <p className="text-sm text-gray-400">暂无模型，请通过配置向导下载模型。</p>
+        ) : (
+          <ul className="text-sm space-y-1">
+            {models.map((m) => (
+              <li key={m.name} className="flex items-center justify-between text-gray-600">
+                <span>{m.name}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-gray-400">{(m.size / 1e9).toFixed(1)} GB</span>
+                  <button
+                    onClick={() => void handleDelete(m.name)}
+                    className="text-red-400 hover:text-red-600 text-xs"
+                    title="删除模型"
+                  >
+                    删除
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {message && <p className={`text-xs mt-1 ${messageOk ? 'text-green-600' : 'text-red-500'}`}>{message}</p>}
+      </div>
+    );
   }
 
   return (
