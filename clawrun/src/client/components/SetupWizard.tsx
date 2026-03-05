@@ -23,6 +23,16 @@ export function SetupWizard({ open, onClose, ollamaHealthy, ollamaEndpoint }: Pr
   const [error, setError] = useState('');
   const [configuredEnvVars, setConfiguredEnvVars] = useState<string[]>([]);
 
+  // Auto-populate Ollama Base URL when Ollama is healthy and field is empty
+  useEffect(() => {
+    if (ollamaHealthy && ollamaEndpoint && !state.ollama.baseUrl) {
+      setState((s) => ({
+        ...s,
+        ollama: { ...s.ollama, baseUrl: ollamaEndpoint },
+      }));
+    }
+  }, [ollamaHealthy, ollamaEndpoint]);
+
   // Load which API key env vars are already configured on the OpenClaw Deployment
   useEffect(() => {
     if (!open) return;
