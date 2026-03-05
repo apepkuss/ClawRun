@@ -55,6 +55,8 @@ jobs:
           context: clawrun
           platforms: linux/arm64,linux/amd64
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             apepkuss/clawrun:${{ steps.version.outputs.version }}
             apepkuss/clawrun:latest
