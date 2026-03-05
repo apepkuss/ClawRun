@@ -3,7 +3,7 @@ entries:
   ollama-cpu:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-03-02T22:10:10.731765+08:00"
+    created: "2026-03-05T23:56:13.823846+08:00"
     description: Ollama CPU Only - Run LLM models without GPU on Olares
     digest: 3b89a8b469ac75fc9a78fb6433d795a2a3f36d7680b5576c8868d5e66bad4ae0
     name: ollama-cpu
@@ -14,12 +14,12 @@ entries:
   openclaw:
   - apiVersion: v2
     appVersion: latest
-    created: "2026-03-02T22:10:10.734127+08:00"
+    created: "2026-03-05T23:56:13.824114+08:00"
     description: OpenClaw - Personal AI Assistant on Olares
-    digest: 4ff9e1f8a7ade4d49f7255483c02440d3a1273541cf7f859953ceeb66ebc19ac
+    digest: edb0a13804d859f9f33512c71095279aee07ebad31ed89cd589787e012072f3e
     name: openclaw
     type: application
     urls:
     - openclaw-0.1.0.tgz
     version: 0.1.0
-generated: "2026-03-02T22:10:10.730514+08:00"
+generated: "2026-03-05T23:56:13.822584+08:00"

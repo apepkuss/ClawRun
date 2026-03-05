@@ -63,23 +63,14 @@ spec:
               mountPath: /home/node/.openclaw
       containers:
         - name: openclaw
-          # Custom image with iptables pre-installed (official image is Debian-based, no apk).
-          # OPA blocks untrusted images running as root, so iptables is baked into the image.
-          image: "apepkuss/openclaw:2026.3.2-olares"
-          # Bypass Olares Envoy sidecar: must run in entrypoint AFTER
-          # olares-sidecar-init sets up iptables REDIRECT rules.
+          image: "alpine/openclaw:2026.3.2"
+          # Wait for iptables-bypass sidecar to finish, then start gateway.
           command:
             - sh
             - "-c"
             - |
-              iptables-legacy -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || \
-                iptables -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || true
-              iptables-legacy -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || \
-                iptables -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || true
+              while [ ! -f /iptables-ready/done ]; do sleep 0.5; done
               exec node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured
-          securityContext:
-            capabilities:
-              add: ["NET_ADMIN"]
           ports:
             - containerPort: 18789
               name: gateway
@@ -106,7 +97,41 @@ spec:
               mountPath: /home/node/.openclaw
             - name: workspace-data
               mountPath: /home/node/.openclaw/workspace
+            - name: iptables-ready
+              mountPath: /iptables-ready
+        # Sidecar: set iptables RETURN rules as root to bypass Olares Envoy sidecar.
+        # Uses trusted image (beclab/) that OPA allows to run as root.
+        # - PREROUTING 18789: bypass inbound Envoy auth for gateway port
+        # - OUTPUT 11434: bypass outbound Envoy for Ollama connectivity
+        - name: iptables-bypass
+          image: "beclab/init:v1.2.3"
+          command:
+            - sh
+            - "-c"
+            - |
+              iptables-legacy -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || \
+                iptables -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || true
+              iptables-legacy -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || \
+                iptables -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || true
+              touch /iptables-ready/done
+              sleep infinity
+          securityContext:
+            runAsUser: 0
+            capabilities:
+              add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: iptables-ready
+              mountPath: /iptables-ready
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 32Mi
       volumes:
+        - name: iptables-ready
+          emptyDir: {}
         - name: config-data
           hostPath:
             path: "{{ .Values.userspace.appData }}/config"

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { exec } from 'child_process';
-import { getDeploymentEnvVar, getDeploymentEnvVars, patchDeploymentEnvVarsBoth, patchDeployment, labelNamespace } from './k8s';
+import { getDeploymentEnvVar, getDeploymentEnvVars, patchDeploymentEnvVarsBoth, labelNamespace } from './k8s';
 
 const CONFIG_FILE = '/app/data/config.json';
 
@@ -145,56 +145,11 @@ export function markWizardCompleted() {
   saveConfig({ wizardCompleted: true });
 }
 
-// Patch OpenClaw deployment to bypass Envoy for inbound (18789) and outbound (11434).
-// Uses a trusted sidecar (beclab/init — same as olares-sidecar-init) running as root
-// to set iptables RETURN rules.  The main container waits for a readiness signal.
-// Non-root users cannot run iptables even with NET_ADMIN, and OPA blocks root for
-// untrusted registries, so the trusted sidecar is the only viable approach.
-
+// Ensure OpenClaw namespace has the label required by Ollama's NetworkPolicy.
+// iptables bypass is now baked into the OpenClaw Helm chart (sidecar container).
 export async function patchOutboundBypass(username: string): Promise<boolean> {
   const ns = `openclaw-${username}`;
-
-  // Ensure OpenClaw namespace has the label required by Ollama's NetworkPolicy
-  await labelNamespace(ns, { 'bytetrade.io/ns-type': 'user-internal' });
-
-  // Main container: wait for sidecar to finish iptables setup, then start OpenClaw
-  const mainScript =
-    'while [ ! -f /iptables-ready/done ]; do sleep 0.5; done; ' +
-    'exec node dist/index.js gateway --bind lan --port 18789 --allow-unconfigured';
-
-  // Sidecar: set iptables rules as root, signal readiness, then idle
-  const sidecarScript =
-    'iptables-legacy -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || ' +
-    'iptables -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || true; ' +
-    'iptables-legacy -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || ' +
-    'iptables -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || true; ' +
-    'touch /iptables-ready/done; sleep infinity';
-
-  return patchDeployment(ns, 'openclaw', {
-    spec: {
-      template: {
-        spec: {
-          containers: [
-            {
-              name: 'openclaw',
-              command: ['sh', '-c'],
-              args: [mainScript],
-              volumeMounts: [{ name: 'iptables-ready', mountPath: '/iptables-ready' }],
-            },
-            {
-              name: 'iptables-bypass',
-              image: 'beclab/init:v1.2.3',
-              command: ['sh', '-c'],
-              args: [sidecarScript],
-              securityContext: { runAsUser: 0, capabilities: { add: ['NET_ADMIN'] } },
-              volumeMounts: [{ name: 'iptables-ready', mountPath: '/iptables-ready' }],
-            },
-          ],
-          volumes: [{ name: 'iptables-ready', emptyDir: {} }],
-        },
-      },
-    },
-  });
+  return labelNamespace(ns, { 'bytetrade.io/ns-type': 'user-internal' });
 }
 
 export function clearConfig() {

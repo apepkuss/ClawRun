@@ -27,25 +27,24 @@ router.get('/health', async (_req, res) => {
 
 // POST /api/openclaw/config/batch   body: { entries: [{ key, value }] }
 // Sets config via kubectl exec → `node dist/index.js config set` inside OpenClaw pod.
-router.post('/config/batch', async (req, res) => {
-  try {
-    const { entries } = req.body as { entries: { key: string; value: unknown }[] };
-    const username = getOlaresUsername();
-    const results: boolean[] = [];
+// Responds immediately and runs config sets in background to avoid Envoy timeout
+// (each config set triggers Ollama model discovery which can take 10+ seconds).
+router.post('/config/batch', (req, res) => {
+  const { entries } = req.body as { entries: { key: string; value: unknown }[] };
+  if (!entries || entries.length === 0) {
+    res.json({ ok: true });
+    return;
+  }
+  const username = getOlaresUsername();
+  res.json({ ok: true });
+
+  // Fire-and-forget: run config sets sequentially in background
+  (async () => {
     for (const entry of entries) {
       const val = typeof entry.value === 'string' ? entry.value : JSON.stringify(entry.value);
-      const ok = await openclaw.setConfigViaExec(username, entry.key, val);
-      results.push(ok);
+      await openclaw.setConfigViaExec(username, entry.key, val);
     }
-    const allOk = results.every(Boolean);
-    if (allOk) {
-      res.json({ ok: true });
-    } else {
-      res.status(500).json({ error: 'Some config entries failed to apply' });
-    }
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
+  })().catch((err) => console.error('[openclaw] background config/batch failed:', err));
 });
 
 // GET /api/openclaw/env — read which API key env vars are set on OpenClaw Deployment
