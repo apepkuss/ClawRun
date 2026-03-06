@@ -23,6 +23,14 @@ export function SetupWizard({ open, onClose, ollamaHealthy, ollamaEndpoint }: Pr
   const [error, setError] = useState('');
   const [configuredEnvVars, setConfiguredEnvVars] = useState<string[]>([]);
 
+  // Reset to first step whenever wizard opens
+  useEffect(() => {
+    if (open) {
+      setStep(0);
+      setError('');
+    }
+  }, [open]);
+
   // Auto-populate Ollama Base URL when Ollama is healthy and field is empty
   useEffect(() => {
     if (ollamaHealthy && ollamaEndpoint && !state.ollama.baseUrl) {
