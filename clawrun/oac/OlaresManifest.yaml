@@ -4,7 +4,7 @@ olaresManifest.type: app
 metadata:
   name: clawrun
   description: Unified management UI for OpenClaw and Ollama
-  icon: https://file.bttcdn.com/appstore/default/defaulticon.webp
+  icon: https://raw.githubusercontent.com/apepkuss/ClawRun/refs/heads/main/img/icon.png
   appid: clawrun
   version: '0.1.1'
   title: ClawRun
@@ -16,7 +16,7 @@ entrances:
     port: 3000
     host: clawrun-svc
     title: ClawRun
-    icon: https://file.bttcdn.com/appstore/default/defaulticon.webp
+    icon: https://raw.githubusercontent.com/apepkuss/ClawRun/refs/heads/main/img/icon.png
     authLevel: private
     openMethod: window
   - name: clawrun-charts
