@@ -31,6 +31,7 @@ const STATE_MAP: Record<string, { text: string; color: 'amber' | 'red' }> = {
   pending:          { text: '等待中…', color: 'amber' },
   downloading:      { text: '下载中…', color: 'amber' },
   installing:       { text: '安装中…', color: 'amber' },
+  initialized:      { text: '初始化中…', color: 'amber' },
   downloadFailed:   { text: '下载失败', color: 'red' },
   installFailed:    { text: '安装失败', color: 'red' },
   uninstalling:     { text: '卸载中…', color: 'amber' },
