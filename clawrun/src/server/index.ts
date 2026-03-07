@@ -3,7 +3,6 @@ import http from 'http';
 import path from 'path';
 import appsRouter from './routes/apps';
 import openclawRouter from './routes/openclaw';
-import ollamaRouter from './routes/ollama';
 import statusRouter from './routes/status';
 
 const app = express();
@@ -15,7 +14,6 @@ app.use(express.json());
 // API routes
 app.use('/api/apps', appsRouter);
 app.use('/api/openclaw', openclawRouter);
-app.use('/api/ollama', ollamaRouter);
 app.use('/api/status', statusRouter);
 
 // Serve frontend static files (built by Vite)

@@ -134,11 +134,6 @@ export function SetupWizard({ open, onClose, ollamaHealthy, ollamaEndpoint }: Pr
         }
       }
 
-      // 3. Patch Ollama deployment to bypass inbound Envoy
-      if (state.useOllama) {
-        await fetch('/api/ollama/patch-bypass', { method: 'POST' });
-      }
-
       // Mark wizard complete
       await fetch('/api/openclaw/wizard-complete', { method: 'POST' });
 

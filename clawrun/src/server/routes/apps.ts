@@ -1,6 +1,5 @@
 import { Router, Request } from 'express';
 import { installApp, uninstallApp, getOlaresUsername } from '../services/app-manager';
-import { setVariant, setConnection } from '../services/ollama';
 import { setConnection as setOpenclawConnection, clearConfig as clearOpenclawConfig } from '../services/openclaw';
 
 const router = Router();
@@ -26,12 +25,6 @@ function getAuthInfo(req: Request): { bflUser: string; accessToken: string | nul
   return { bflUser: user, accessToken };
 }
 
-// Map app name → Ollama variant for auto-configuration
-const OLLAMA_VARIANTS: Record<string, { variant: 'cpu' | 'gpu'; svcName: string; port: number }> = {
-  'ollama-cpu': { variant: 'cpu', svcName: 'ollama-cpu-svc', port: 11434 },
-  'ollama':     { variant: 'gpu', svcName: 'ollama-svc',     port: 11434 },
-};
-
 // POST /api/apps/:name/install   body: { repoUrl }
 router.post('/:name/install', async (req, res) => {
   try {
@@ -40,15 +33,6 @@ router.post('/:name/install', async (req, res) => {
     console.log('[install] result:', JSON.stringify(result));
 
     const username = getOlaresUsername();
-
-    // Auto-configure Ollama variant + endpoint after successful install
-    const ollamaInfo = OLLAMA_VARIANTS[req.params.name];
-    if (ollamaInfo) {
-      const ep = `http://${ollamaInfo.svcName}.${req.params.name}-${username}:${ollamaInfo.port}`;
-      setVariant(ollamaInfo.variant);
-      setConnection(ep);
-      console.log(`[install] auto-configured ollama: variant=${ollamaInfo.variant}, endpoint=${ep}`);
-    }
 
     // Auto-configure OpenClaw connection after successful install
     if (req.params.name === 'openclaw' && generatedEnvs.OPENCLAW_GATEWAY_TOKEN) {
@@ -68,17 +52,10 @@ router.post('/:name/install', async (req, res) => {
 router.post('/:name/uninstall', async (req, res) => {
   const appName = req.params.name;
 
-  // Always clear local config regardless of app-service result,
-  // so a failed install doesn't leave the card in a deadlocked state.
   function clearLocalConfig() {
     if (appName === 'openclaw') {
       clearOpenclawConfig();
       console.log('[uninstall] cleared openclaw config and wizard state');
-    }
-    if (OLLAMA_VARIANTS[appName]) {
-      setVariant(null);
-      setConnection('');
-      console.log('[uninstall] cleared ollama variant and endpoint');
     }
   }
 
@@ -91,7 +68,6 @@ router.post('/:name/uninstall', async (req, res) => {
     const msg = String(err);
     console.error('[uninstall] error:', msg);
     clearLocalConfig();
-    // "uninstalled state" means the app is already gone — treat as success
     if (msg.includes('uninstalled state') || msg.includes('not installed')) {
       console.log('[uninstall] app already uninstalled, treating as success');
       res.json({ code: 200, message: 'already uninstalled' });

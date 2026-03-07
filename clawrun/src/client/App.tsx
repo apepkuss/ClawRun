@@ -2,32 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { useAppStatus } from './hooks/useAppStatus';
 import { AppCard } from './components/AppCard';
 import { ConnectPanel } from './components/ConnectPanel';
-import { OllamaPanel } from './components/OllamaPanel';
 import { SetupWizard } from './components/SetupWizard';
 
 type Tab = 'dashboard' | 'settings';
-type SettingsTab = 'openclaw' | 'ollama';
 
 export default function App() {
   const { status, loading, refresh, setFastPoll } = useAppStatus();
   const [tab, setTab] = useState<Tab>('dashboard');
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>('openclaw');
   const [showWizard, setShowWizard] = useState(false);
   const [wizardChecked, setWizardChecked] = useState(false);
   const [busyApps, setBusyApps] = useState<Record<string, string>>({});
-  const [ollamaRefreshKey, setOllamaRefreshKey] = useState(0);
 
   // Clear brief busy state once CRD installState takes over
   useEffect(() => {
     if (!status || Object.keys(busyApps).length === 0) return;
     const installStateMap: Record<string, string | null> = {
       openclaw: status.openclaw.installState,
-      'ollama-cpu': status.ollama.installState,
-      ollama: status.ollama.installState,
     };
     for (const appName of Object.keys(busyApps)) {
       const crdState = installStateMap[appName];
-      // CRD state appeared → clear the brief busy indicator
       if (crdState) {
         setBusy(appName, null);
       }
@@ -40,7 +33,6 @@ export default function App() {
     const inProgressStates = ['pending', 'downloading', 'installing', 'uninstalling', 'resuming', 'suspending', 'upgrading'];
     const anyInProgress =
       inProgressStates.includes(status.openclaw.installState ?? '') ||
-      inProgressStates.includes(status.ollama.installState ?? '') ||
       Object.keys(busyApps).length > 0;
     setFastPoll(anyInProgress);
   }, [status, busyApps]);
@@ -66,17 +58,7 @@ export default function App() {
     refresh();
   }
 
-  async function connectOllama(values: Record<string, string>) {
-    await fetch('/api/ollama/connect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ endpoint: values.endpoint, uiUrl: values.uiUrl }),
-    });
-    refresh();
-  }
-
   function isAppServiceError(data: Record<string, unknown>): boolean {
-    // Olares app-service uses code:200 for success, code:0 is also OK
     if (data?.code === undefined) return false;
     const code = Number(data.code);
     return code !== 0 && code !== 200;
@@ -119,7 +101,6 @@ export default function App() {
       setBusy(appName, null);
       return;
     }
-    // API call succeeded — brief busy until CRD state takes over
     setBusy(appName, '部署中…');
     setFastPoll(true);
     refresh();
@@ -142,7 +123,6 @@ export default function App() {
     } catch (err) {
       alert(`卸载 ${name} 请求异常: ${String(err)}`);
     }
-    // Always refresh — server clears local config even on failure
     setBusy(name, null);
     setFastPoll(true);
     refresh();
@@ -190,7 +170,7 @@ export default function App() {
             {loading ? (
               <p className="text-gray-400 text-sm">加载中…</p>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <AppCard
                   name="OpenClaw"
                   healthy={status?.openclaw.healthy ?? false}
@@ -203,7 +183,6 @@ export default function App() {
                   ]}
                   onOpen={() => {
                     let url = status?.openclaw.uiUrl ?? status?.openclaw.endpoint ?? '';
-                    // Pass gateway token via URL param so Control UI auto-configures
                     if (url && status?.openclaw.token) {
                       const sep = url.includes('?') ? '&' : '?';
                       url = `${url}${sep}token=${encodeURIComponent(status.openclaw.token)}`;
@@ -212,85 +191,32 @@ export default function App() {
                   }}
                   onUninstall={() => { void uninstall('openclaw'); }}
                 />
-                <AppCard
-                  name={`Ollama${status?.ollama.variant === 'cpu' ? ' (CPU)' : status?.ollama.variant === 'gpu' ? ' (GPU)' : ''}`}
-                  healthy={status?.ollama.healthy ?? false}
-                  endpoint={status?.ollama.endpoint ?? null}
-                  installState={status?.ollama.installState ?? null}
-                  installProgress={status?.ollama.installProgress ?? null}
-                  busy={busyApps['ollama-cpu'] || busyApps['ollama']}
-                  installOptions={status?.ollama.variant ? [] : [
-                    { label: '安装 CPU', onClick: () => { void installApp('ollama-cpu'); } },
-                    { label: '安装 GPU', onClick: () => { window.open('https://market.olares.com/app/ollama', '_blank'); } },
-                  ]}
-                  onUninstall={() => { void uninstall(status?.ollama.variant === 'cpu' ? 'ollama-cpu' : 'ollama'); }}
-                />
               </div>
             )}
-
           </div>
         )}
 
         {tab === 'settings' && (
           <div className="flex flex-col gap-6">
-            {/* Sub-tabs */}
-            <div className="flex gap-1 border-b pb-2">
-              {([['openclaw', 'OpenClaw'], ['ollama', 'Ollama']] as const).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setSettingsTab(key)}
-                  className={`px-4 py-1.5 rounded-t-lg text-sm font-medium transition-colors ${
-                    settingsTab === key
-                      ? 'bg-white border border-b-white -mb-[9px] text-blue-600'
-                      : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+            <h2 className="text-base font-semibold text-gray-500 uppercase tracking-wide">
+              OpenClaw 配置
+            </h2>
+            <div className="bg-white border rounded-xl p-5 shadow-sm">
+              <ConnectPanel
+                key={`openclaw-${status?.openclaw.endpoint ?? ''}`}
+                label="OpenClaw 连接"
+                fields={[
+                  { key: 'endpoint', label: '健康检查端点（内网）', placeholder: 'http://openclaw-svc.openclaw-apepkuss:18789' },
+                  { key: 'token', label: 'Gateway Token', placeholder: 'OPENCLAW_GATEWAY_TOKEN 的值', type: 'password' },
+                  { key: 'uiUrl', label: 'Web UI 地址（外网）', placeholder: 'https://openclaw.xxxx.apepkuss.olares.cn' },
+                ]}
+                initialValues={{
+                  endpoint: status?.openclaw.endpoint ?? '',
+                  uiUrl: status?.openclaw.uiUrl ?? '',
+                }}
+                onConnect={connectOpenClaw}
+              />
             </div>
-
-            {settingsTab === 'openclaw' && (
-              <div className="bg-white border rounded-xl p-5 shadow-sm">
-                <ConnectPanel
-                  key={`openclaw-${status?.openclaw.endpoint ?? ''}`}
-                  label="OpenClaw 连接"
-                  fields={[
-                    { key: 'endpoint', label: '健康检查端点（内网）', placeholder: 'http://openclaw-svc.openclaw-apepkuss:18789' },
-                    { key: 'token', label: 'Gateway Token', placeholder: 'OPENCLAW_GATEWAY_TOKEN 的值', type: 'password' },
-                    { key: 'uiUrl', label: 'Web UI 地址（外网）', placeholder: 'https://openclaw.xxxx.apepkuss.olares.cn' },
-                  ]}
-                  initialValues={{
-                    endpoint: status?.openclaw.endpoint ?? '',
-                    uiUrl: status?.openclaw.uiUrl ?? '',
-                  }}
-                  onConnect={connectOpenClaw}
-                />
-              </div>
-            )}
-
-            {settingsTab === 'ollama' && (
-              <>
-                <div className="bg-white border rounded-xl p-5 shadow-sm">
-                  <ConnectPanel
-                    key={`ollama-${status?.ollama.endpoint ?? ''}`}
-                    label="Ollama 连接"
-                    fields={[
-                      { key: 'endpoint', label: '服务端点（内网）', placeholder: 'http://ollama-cpu-svc.ollama-cpu-apepkuss:11434' },
-                      { key: 'uiUrl', label: 'Web UI 地址（外网）', placeholder: 'https://xxxx.apepkuss.olares.cn' },
-                    ]}
-                    initialValues={{
-                      endpoint: status?.ollama.endpoint ?? '',
-                      uiUrl: status?.ollama.uiUrl ?? '',
-                    }}
-                    onConnect={connectOllama}
-                  />
-                </div>
-                <div className="bg-white border rounded-xl p-5 shadow-sm">
-                  <OllamaPanel key={ollamaRefreshKey} healthy={status?.ollama.healthy ?? false} listOnly />
-                </div>
-              </>
-            )}
           </div>
         )}
       </main>
@@ -300,7 +226,6 @@ export default function App() {
         onClose={() => {
           setShowWizard(false);
           refresh();
-          setOllamaRefreshKey((k) => k + 1);
         }}
         ollamaHealthy={status?.ollama.healthy ?? false}
         ollamaEndpoint={status?.ollama.endpoint ?? null}

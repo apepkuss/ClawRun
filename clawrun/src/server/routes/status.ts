@@ -22,15 +22,11 @@ function getOlaresBaseDomain(host: string | undefined): string | null {
 router.get('/', async (req, res) => {
   const username = getOlaresUsername();
   const baseDomain = getOlaresBaseDomain(req.headers.host);
-  const [openclawHealthy, ollamaHealthy, openclawInfo, ollamaCpuInfo, ollamaInfo] = await Promise.all([
+  const [openclawHealthy, ollamaHealthy, openclawInfo] = await Promise.all([
     openclawHealth(),
     ollamaStatus(),
     getAppManagerState('openclaw', username),
-    getAppManagerState('ollama-cpu', username),
-    getAppManagerState('ollama', username),
   ]);
-
-  const ollamaInstall = ollamaCpuInfo.state ? ollamaCpuInfo : ollamaInfo;
 
   // Sync OpenClaw token from K8s deployment (verifies periodically)
   let conn = getConnection();
@@ -61,10 +57,7 @@ router.get('/', async (req, res) => {
     ollama: {
       healthy: ollamaHealthy,
       endpoint: ollamaConn.endpoint || null,
-      uiUrl: ollamaConn.uiUrl || null,
       variant: ollamaConn.variant ?? null,
-      installState: ollamaInstall.state,
-      installProgress: ollamaInstall.progress,
     },
   });
 });
