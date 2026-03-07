@@ -60,7 +60,7 @@ export function getConnection() {
 export function autoConfigureUiUrl(baseDomain: string, v: OllamaVariant): void {
   if (!v || !baseDomain) return;
 
-  const appName = v === 'cpu' ? 'ollama-cpu' : 'ollama';
+  const appName = v === 'cpu' ? 'ollamarun' : 'ollama';
   const appId = crypto.createHash('md5').update(appName).digest('hex').substring(0, 8);
   const expected = `https://${appId}.${baseDomain}`;
   if (uiUrl === expected) return;
@@ -90,14 +90,14 @@ export async function checkStatus(): Promise<boolean> {
 
   // If variant is already known, check directly
   if (variant) {
-    const ns = variant === 'cpu' ? `ollama-cpu-${user}` : `ollama-${user}`;
-    const deploy = variant === 'cpu' ? 'ollama-cpu' : 'ollama';
+    const ns = variant === 'cpu' ? `ollamarun-${user}` : `ollama-${user}`;
+    const deploy = variant === 'cpu' ? 'ollamarun' : 'ollama';
     return checkDeployReady(ns, deploy);
   }
 
   // Auto-detect: try both variants
   const candidates: { v: OllamaVariant; ns: string; deploy: string; svc: string; port: number }[] = [
-    { v: 'cpu', ns: `ollama-cpu-${user}`, deploy: 'ollama-cpu', svc: 'ollama-cpu-svc', port: 11434 },
+    { v: 'cpu', ns: `ollamarun-${user}`, deploy: 'ollamarun', svc: 'ollamarun-svc', port: 11434 },
     { v: 'gpu', ns: `ollama-${user}`, deploy: 'ollama', svc: 'ollama-svc', port: 11434 },
   ];
 

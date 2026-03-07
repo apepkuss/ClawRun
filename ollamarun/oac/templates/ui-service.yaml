@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: ollama-cpu-svc
+  name: ollamarun-ui-svc
   namespace: {{ .Release.Namespace }}
 spec:
   type: ClusterIP
   selector:
-    app: ollama-cpu
+    app: ollamarun-ui
   ports:
     - protocol: TCP
-      name: api
-      port: 11434
-      targetPort: 11434
+      name: web
+      port: 3000
+      targetPort: 3000

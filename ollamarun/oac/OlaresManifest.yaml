@@ -2,26 +2,26 @@ olaresManifest.version: '0.10.0'
 olaresManifest.type: app
 
 metadata:
-  name: ollama-cpu
+  name: ollamarun
   description: Run LLM models on CPU — no GPU required. Includes model management UI.
   icon: https://raw.githubusercontent.com/apepkuss/ClawRun/refs/heads/main/img/icon.png
-  appid: ollama-cpu
+  appid: ollamarun
   version: '0.2.1'
-  title: Ollama CPU
+  title: OllamaRun
   categories:
     - Utilities
 
 entrances:
-  - name: ollama-cpu-ui
+  - name: ollamarun-ui
     port: 3000
-    host: ollama-cpu-ui-svc
-    title: Ollama CPU
+    host: ollamarun-ui-svc
+    title: OllamaRun
     icon: https://raw.githubusercontent.com/apepkuss/ClawRun/refs/heads/main/img/icon.png
     authLevel: private
     openMethod: window
-  - name: ollama-cpu-api
+  - name: ollamarun-api
     port: 11434
-    host: ollama-cpu-svc
+    host: ollamarun-svc
     title: Ollama API
     authLevel: private
     openMethod: default
@@ -34,7 +34,7 @@ permission:
 spec:
   versionName: '0.2.1'
   fullDescription: |
-    Ollama CPU Only edition for Olares.
+    OllamaRun edition for Olares.
     Runs LLM inference entirely on CPU — no NVIDIA GPU required.
     Includes a web-based model management UI for browsing, downloading,
     and deleting models from the Ollama library.

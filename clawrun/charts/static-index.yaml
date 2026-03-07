@@ -1,15 +1,15 @@
 apiVersion: v1
 entries:
-  ollama-cpu:
+  ollamarun:
   - apiVersion: v2
     appVersion: 0.1.0
     created: "2026-03-05T23:56:13.823846+08:00"
-    description: Ollama CPU Only - Run LLM models without GPU on Olares
+    description: OllamaRun Only - Run LLM models without GPU on Olares
     digest: 3b89a8b469ac75fc9a78fb6433d795a2a3f36d7680b5576c8868d5e66bad4ae0
-    name: ollama-cpu
+    name: ollamarun
     type: application
     urls:
-    - ollama-cpu-0.1.0.tgz
+    - ollamarun-0.1.0.tgz
     version: 0.1.0
   openclaw:
   - apiVersion: v2

@@ -2,7 +2,7 @@ import { exec, spawn } from 'child_process';
 
 // Ollama API base URL — the UI runs in the same namespace as Ollama,
 // traffic goes through iptables bypass (no Envoy interception).
-const OLLAMA_BASE = process.env.OLLAMA_BASE_URL ?? 'http://ollama-cpu-svc:11434';
+const OLLAMA_BASE = process.env.OLLAMA_BASE_URL ?? 'http://ollamarun-svc:11434';
 
 // --- HTTP helpers ---
 

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ollamarun
+description: OllamaRun - Run LLM models without GPU on Olares
+type: application
+version: '0.2.1'
+appVersion: '0.2.1'

@@ -4,18 +4,18 @@ metadata:
   name: {{ .Release.Name }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: ollama-cpu
+    app: ollamarun
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ollama-cpu
+      app: ollamarun
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app: ollama-cpu
+        app: ollamarun
     spec:
       initContainers:
         - name: iptables-bypass
@@ -30,7 +30,7 @@ spec:
             - |
               iptables-legacy -t nat -I PREROUTING -p tcp --dport 11434 -j RETURN 2>/dev/null || true
       containers:
-        - name: ollama-cpu
+        - name: ollamarun
           image: "ollama/ollama:latest"
           imagePullPolicy: IfNotPresent
           ports:
@@ -59,5 +59,5 @@ spec:
       volumes:
         - name: ollama-data
           hostPath:
-            path: "{{ .Values.userspace.appData }}/ollama-cpu"
+            path: "{{ .Values.userspace.appData }}/ollamarun"
             type: DirectoryOrCreate

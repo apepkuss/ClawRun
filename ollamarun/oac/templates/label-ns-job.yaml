@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: ollama-cpu-label-ns
+  name: ollamarun-label-ns
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": post-install,post-upgrade
@@ -11,7 +11,7 @@ spec:
   ttlSecondsAfterFinished: 60
   template:
     spec:
-      serviceAccountName: ollama-cpu-labeler
+      serviceAccountName: ollamarun-labeler
       restartPolicy: Never
       containers:
         - name: kubectl

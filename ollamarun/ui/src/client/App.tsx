@@ -29,7 +29,7 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 text-gray-800">
       <header className="bg-white border-b px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold tracking-tight">Ollama CPU</h1>
+          <h1 className="text-xl font-bold tracking-tight">OllamaRun</h1>
           <div className="flex items-center gap-2">
             <span className={`w-2.5 h-2.5 rounded-full ${healthy ? 'bg-green-500' : 'bg-gray-300'}`} />
             <span className="text-sm text-gray-500">

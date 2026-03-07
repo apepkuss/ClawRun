@@ -39,7 +39,7 @@ jobs:
       - name: Package bundled charts
         run: |
           helm package openclaw/ -d clawrun/charts/
-          helm package ollama-cpu/oac/ -d clawrun/charts/
+          helm package ollamarun/oac/ -d clawrun/charts/
 
       - name: Extract platform slug
         id: slug
@@ -150,6 +150,6 @@ jobs:
             ### Fresh install
             Download `clawrun-${{ steps.version.outputs.version }}.tgz` and install via Olares Market.
 
-            OpenClaw and Ollama CPU charts are bundled inside the ClawRun image and installed from its built-in chart server.
+            OpenClaw and OllamaRun charts are bundled inside the ClawRun image and installed from its built-in chart server.
           files: |
             dist/clawrun-${{ steps.version.outputs.version }}.tgz

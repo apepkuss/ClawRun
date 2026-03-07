@@ -58,7 +58,7 @@ The script:
 
 ## Bundled Charts
 
-OpenClaw and Ollama CPU charts are **not** released separately. They are:
+OpenClaw and OllamaRun charts are **not** released separately. They are:
 
 - Packaged as tgz files in `clawrun/charts/` (baked into the Docker image at build time)
 - Served by ClawRun's built-in chart server on port 3001
@@ -71,8 +71,8 @@ To update bundled charts:
 helm package openclaw/ -d clawrun/charts/
 # Update digest in clawrun/charts/static-index.yaml
 
-# Ollama CPU
-helm package ollama-cpu/oac/ -d clawrun/charts/
+# OllamaRun
+helm package ollamarun/oac/ -d clawrun/charts/
 # Update digest in clawrun/charts/static-index.yaml
 ```
 

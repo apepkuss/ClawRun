@@ -18,5 +18,5 @@ app.get('*', (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Ollama CPU UI listening on port ${PORT}`);
+  console.log(`OllamaRun UI listening on port ${PORT}`);
 });
