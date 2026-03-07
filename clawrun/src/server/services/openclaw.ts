@@ -152,6 +152,26 @@ export async function patchOutboundBypass(username: string): Promise<boolean> {
   return labelNamespace(ns, { 'bytetrade.io/ns-type': 'user-internal' });
 }
 
+// Restart OpenClaw pod via kubectl rollout restart.
+export async function restartDeploy(username: string): Promise<boolean> {
+  const ns = `openclaw-${username}`;
+  return new Promise((resolve) => {
+    exec(
+      `kubectl rollout restart deploy/openclaw -n ${ns}`,
+      { timeout: 15000 },
+      (err, _stdout, stderr) => {
+        if (err) {
+          console.error('[openclaw] rollout restart failed:', stderr || err.message);
+          resolve(false);
+          return;
+        }
+        console.log(`[openclaw] rollout restart ok (ns=${ns})`);
+        resolve(true);
+      },
+    );
+  });
+}
+
 export function clearConfig() {
   // Reset in-memory state so status polling won't restore the config
   endpoint = '';

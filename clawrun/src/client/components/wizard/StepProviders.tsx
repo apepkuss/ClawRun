@@ -138,7 +138,7 @@ export function StepProviders({ state, onChange, configuredEnvVars, ollamaHealth
                 type="text"
                 value={state.ollama.baseUrl}
                 onChange={(e) => updateOllama('baseUrl', e.target.value)}
-                placeholder={ollamaEndpoint ?? 'http://ollama-svc:11434'}
+                placeholder={ollamaEndpoint ?? 'http://ollamarun-svc:11434'}
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:outline-none"
               />
               <p className="text-xs text-gray-400 mt-1">

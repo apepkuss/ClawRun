@@ -104,7 +104,7 @@ export function SetupWizard({ open, onClose, ollamaHealthy, ollamaEndpoint }: Pr
         }
       }
 
-      // 2. Patch API keys as env vars on OpenClaw Deployment (triggers pod restart)
+      // 2. Patch API keys as env vars on OpenClaw Deployment
       const envPatch: Record<string, string> = {};
       for (const p of PROVIDERS) {
         const key = state.providers[p.id]?.trim();
@@ -123,6 +123,7 @@ export function SetupWizard({ open, onClose, ollamaHealthy, ollamaEndpoint }: Pr
         await fetch('/api/openclaw/patch-bypass', { method: 'POST' });
       }
 
+      let envPatched = false;
       if (Object.keys(envPatch).length > 0) {
         const res = await fetch('/api/openclaw/env', {
           method: 'POST',
@@ -132,6 +133,12 @@ export function SetupWizard({ open, onClose, ollamaHealthy, ollamaEndpoint }: Pr
         if (!res.ok) {
           throw new Error(`API Key 配置失败: ${res.status}`);
         }
+        envPatched = true;
+      }
+
+      // 3. Restart OpenClaw if env patch didn't already trigger a restart
+      if (!envPatched && configEntries.length > 0) {
+        await fetch('/api/openclaw/restart', { method: 'POST' });
       }
 
       // Mark wizard complete

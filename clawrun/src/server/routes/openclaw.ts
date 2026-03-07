@@ -27,24 +27,25 @@ router.get('/health', async (_req, res) => {
 
 // POST /api/openclaw/config/batch   body: { entries: [{ key, value }] }
 // Sets config via kubectl exec → `node dist/index.js config set` inside OpenClaw pod.
-// Responds immediately and runs config sets in background to avoid Envoy timeout
-// (each config set triggers Ollama model discovery which can take 10+ seconds).
-router.post('/config/batch', (req, res) => {
+// Waits for all config sets to complete before responding.
+router.post('/config/batch', async (req, res) => {
   const { entries } = req.body as { entries: { key: string; value: unknown }[] };
   if (!entries || entries.length === 0) {
     res.json({ ok: true });
     return;
   }
   const username = getOlaresUsername();
-  res.json({ ok: true });
-
-  // Fire-and-forget: run config sets sequentially in background
-  (async () => {
-    for (const entry of entries) {
-      const val = typeof entry.value === 'string' ? entry.value : JSON.stringify(entry.value);
-      await openclaw.setConfigViaExec(username, entry.key, val);
-    }
-  })().catch((err) => console.error('[openclaw] background config/batch failed:', err));
+  let failed = 0;
+  for (const entry of entries) {
+    const val = typeof entry.value === 'string' ? entry.value : JSON.stringify(entry.value);
+    const ok = await openclaw.setConfigViaExec(username, entry.key, val);
+    if (!ok) failed++;
+  }
+  if (failed > 0) {
+    res.status(500).json({ error: `${failed}/${entries.length} config sets failed` });
+  } else {
+    res.json({ ok: true });
+  }
 });
 
 // GET /api/openclaw/env — read which API key env vars are set on OpenClaw Deployment
@@ -84,6 +85,17 @@ router.post('/patch-bypass', async (_req, res) => {
     res.json({ ok: true });
   } else {
     res.status(500).json({ error: 'Failed to patch OpenClaw deployment' });
+  }
+});
+
+// POST /api/openclaw/restart — restart OpenClaw deployment
+router.post('/restart', async (_req, res) => {
+  const username = getOlaresUsername();
+  const ok = await openclaw.restartDeploy(username);
+  if (ok) {
+    res.json({ ok: true });
+  } else {
+    res.status(500).json({ error: 'Failed to restart OpenClaw deployment' });
   }
 });
 
