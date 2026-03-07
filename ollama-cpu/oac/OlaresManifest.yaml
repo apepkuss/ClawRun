@@ -3,33 +3,41 @@ olaresManifest.type: app
 
 metadata:
   name: ollama-cpu
-  description: Run LLM models on CPU — no GPU required. Compatible with Apple Silicon and any arm64/amd64 machine.
-  icon: https://file.bttcdn.com/appstore/default/defaulticon.webp
+  description: Run LLM models on CPU — no GPU required. Includes model management UI.
+  icon: https://raw.githubusercontent.com/apepkuss/ClawRun/refs/heads/main/img/icon.png
   appid: ollama-cpu
-  version: '0.1.0'
+  version: '0.2.1'
   title: Ollama CPU
   categories:
     - Utilities
 
 entrances:
+  - name: ollama-cpu-ui
+    port: 3000
+    host: ollama-cpu-ui-svc
+    title: Ollama CPU
+    icon: https://raw.githubusercontent.com/apepkuss/ClawRun/refs/heads/main/img/icon.png
+    authLevel: private
+    openMethod: window
   - name: ollama-cpu-api
     port: 11434
     host: ollama-cpu-svc
-    title: Ollama CPU
-    icon: https://file.bttcdn.com/appstore/default/defaulticon.webp
+    title: Ollama API
     authLevel: private
-    openMethod: window
+    openMethod: default
+    invisible: true
 
 permission:
   appData: true
   appCache: true
 
 spec:
-  versionName: '0.1.0'
+  versionName: '0.2.1'
   fullDescription: |
     Ollama CPU Only edition for Olares.
     Runs LLM inference entirely on CPU — no NVIDIA GPU required.
-    Drop-in replacement for the Market GPU version on Apple Silicon or CPU-only machines.
+    Includes a web-based model management UI for browsing, downloading,
+    and deleting models from the Ollama library.
     Exposes the standard Ollama REST API on port 11434.
     Model files are persisted in Olares appData so they survive pod restarts.
   developer: ClawRun

@@ -17,6 +17,18 @@ spec:
       labels:
         app: ollama-cpu
     spec:
+      initContainers:
+        - name: iptables-bypass
+          image: "beclab/init:v1.2.3"
+          securityContext:
+            runAsUser: 0
+            capabilities:
+              add: ["NET_ADMIN"]
+          command:
+            - sh
+            - -c
+            - |
+              iptables-legacy -t nat -I PREROUTING -p tcp --dport 11434 -j RETURN 2>/dev/null || true
       containers:
         - name: ollama-cpu
           image: "ollama/ollama:latest"

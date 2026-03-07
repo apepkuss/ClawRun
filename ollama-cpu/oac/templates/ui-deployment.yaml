@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama-cpu-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: ollama-cpu-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama-cpu-ui
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: ollama-cpu-ui
+    spec:
+      initContainers:
+        - name: iptables-bypass
+          image: "beclab/init:v1.2.3"
+          securityContext:
+            runAsUser: 0
+            capabilities:
+              add: ["NET_ADMIN"]
+          command:
+            - sh
+            - -c
+            - |
+              iptables-legacy -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || true
+      containers:
+        - name: ollama-cpu-ui
+          image: "apepkuss/ollama-cpu-ui:latest"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: web
+          env:
+            - name: PORT
+              value: "3000"
+            - name: NODE_ENV
+              value: "production"
+            - name: OLLAMA_BASE_URL
+              value: "http://ollama-cpu-svc:11434"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
