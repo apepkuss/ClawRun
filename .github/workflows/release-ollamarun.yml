@@ -1,0 +1,145 @@
+name: Release OllamaRun
+
+on:
+  push:
+    tags:
+      - 'ollamarun/v*'
+
+jobs:
+  # ── Build Docker images on native runners (no QEMU) ──
+  build-image:
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract platform slug
+        id: slug
+        run: echo "slug=${PLATFORM//\//-}" >> "$GITHUB_OUTPUT"
+        env:
+          PLATFORM: ${{ matrix.platform }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ollamarun/ui
+          platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=ollamarun-${{ steps.slug.outputs.slug }}
+          cache-to: type=gha,scope=ollamarun-${{ steps.slug.outputs.slug }},mode=max
+          outputs: type=image,name=apepkuss/ollamarun,push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: ollamarun-digests-${{ steps.slug.outputs.slug }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── Merge manifests and release ──
+  release:
+    needs: build-image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#ollamarun/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: ollamarun-digests-*
+          merge-multiple: true
+
+      - name: Create multi-platform manifest
+        working-directory: /tmp/digests
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          docker buildx imagetools create \
+            -t "apepkuss/ollamarun:${VERSION}" \
+            -t "apepkuss/ollamarun:latest" \
+            $(printf 'apepkuss/ollamarun@sha256:%s ' *)
+
+      - name: Sync version in charts
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s|^version:.*|version: '${VERSION}'|"             ollamarun/oac/Chart.yaml
+          sed -i "s|^appVersion:.*|appVersion: '${VERSION}'|"       ollamarun/oac/Chart.yaml
+          sed -i "s|^  version:.*|  version: '${VERSION}'|"         ollamarun/oac/OlaresManifest.yaml
+          sed -i "s|^  versionName:.*|  versionName: '${VERSION}'|" ollamarun/oac/OlaresManifest.yaml
+          sed -i "s|image: \"apepkuss/ollamarun:.*\"|image: \"apepkuss/ollamarun:${VERSION}\"|" ollamarun/oac/templates/ui-deployment.yaml
+
+      - name: Package OllamaRun OAC
+        run: |
+          mkdir -p dist
+          helm package ollamarun/oac/ -d dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "OllamaRun v${{ steps.version.outputs.version }}"
+          body: |
+            ## OllamaRun v${{ steps.version.outputs.version }}
+
+            | Artifact | Details |
+            |----------|---------|
+            | Docker Image | `apepkuss/ollamarun:${{ steps.version.outputs.version }}` |
+            | OAC Chart | `ollamarun-${{ steps.version.outputs.version }}.tgz` |
+
+            ### Deploy (existing install)
+            ```bash
+            kubectl set image deployment/ollamarun-ui -n ollamarun-<username> \
+              ollamarun-ui="apepkuss/ollamarun:${{ steps.version.outputs.version }}"
+            ```
+
+            ### Fresh install
+            Download `ollamarun-${{ steps.version.outputs.version }}.tgz` and install via Olares Market.
+          files: |
+            dist/ollamarun-${{ steps.version.outputs.version }}.tgz
