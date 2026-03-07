@@ -29,6 +29,7 @@ spec:
             - -c
             - |
               iptables-legacy -t nat -I PREROUTING -p tcp --dport 11434 -j RETURN 2>/dev/null || true
+              iptables-legacy -t nat -I OUTPUT -p tcp --dport 443 -j RETURN 2>/dev/null || true
       containers:
         - name: ollamarun
           image: "ollama/ollama:latest"
