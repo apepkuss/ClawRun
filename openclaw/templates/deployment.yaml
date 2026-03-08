@@ -44,10 +44,13 @@ spec:
               node dist/index.js config set \
                 gateway.controlUi.dangerouslyDisableDeviceAuth true
 
-              if [ -n "$ZAI_API_KEY" ]; then
-                node dist/index.js config set agents.defaults.model zai/glm-4.7-flash
-              elif [ -n "$OPENAI_API_KEY" ]; then
-                node dist/index.js config set agents.defaults.model openai/gpt-4o
+              # Set default model only when Ollama is NOT configured (wizard manages model when Ollama is active)
+              if [ -z "$OLLAMA_API_KEY" ]; then
+                if [ -n "$ZAI_API_KEY" ]; then
+                  node dist/index.js config set agents.defaults.model zai/glm-4.7-flash
+                elif [ -n "$OPENAI_API_KEY" ]; then
+                  node dist/index.js config set agents.defaults.model openai/gpt-4o
+                fi
               fi
           env:
             - name: HOME
@@ -58,6 +61,8 @@ spec:
               value: "{{ .Values.olaresEnv.OPENAI_API_KEY }}"
             - name: ZAI_API_KEY
               value: "{{ .Values.olaresEnv.ZAI_API_KEY }}"
+            - name: OLLAMA_API_KEY
+              value: "{{ .Values.olaresEnv.OLLAMA_API_KEY }}"
           volumeMounts:
             - name: config-data
               mountPath: /home/node/.openclaw
@@ -85,6 +90,8 @@ spec:
               value: "{{ .Values.olaresEnv.OPENAI_API_KEY }}"
             - name: ZAI_API_KEY
               value: "{{ .Values.olaresEnv.ZAI_API_KEY }}"
+            - name: OLLAMA_API_KEY
+              value: "{{ .Values.olaresEnv.OLLAMA_API_KEY }}"
           resources:
             requests:
               cpu: 200m

@@ -70,15 +70,18 @@ export function SetupWizard({ open, onClose, ollamaHealthy, ollamaEndpoint }: Pr
       }
 
       // Ollama provider config (must set complete provider object — OpenClaw validates models array)
-      if (state.useOllama && state.ollama.baseUrl) {
-        configEntries.push({
-          key: 'models.providers.ollama',
-          value: {
-            baseUrl: state.ollama.baseUrl,
-            apiKey: state.ollama.apiKey || 'ollama',
-            models: [],
-          },
-        });
+      if (state.useOllama) {
+        const baseUrl = state.ollama.baseUrl || ollamaEndpoint || '';
+        if (baseUrl) {
+          configEntries.push({
+            key: 'models.providers.ollama',
+            value: {
+              baseUrl,
+              apiKey: state.ollama.apiKey || 'ollama',
+              models: [],
+            },
+          });
+        }
       }
 
       // Channel configs

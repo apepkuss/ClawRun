@@ -35,12 +35,13 @@ router.post('/config/batch', async (req, res) => {
     return;
   }
   const username = getOlaresUsername();
-  let failed = 0;
-  for (const entry of entries) {
-    const val = typeof entry.value === 'string' ? entry.value : JSON.stringify(entry.value);
-    const ok = await openclaw.setConfigViaExec(username, entry.key, val);
-    if (!ok) failed++;
-  }
+  const results = await Promise.all(
+    entries.map((entry) => {
+      const val = typeof entry.value === 'string' ? entry.value : JSON.stringify(entry.value);
+      return openclaw.setConfigViaExec(username, entry.key, val);
+    }),
+  );
+  const failed = results.filter((ok) => !ok).length;
   if (failed > 0) {
     res.status(500).json({ error: `${failed}/${entries.length} config sets failed` });
   } else {
