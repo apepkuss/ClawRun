@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StepProviders } from './wizard/StepProviders';
 import { StepDefaultModel } from './wizard/StepDefaultModel';
 import { StepChannels } from './wizard/StepChannels';
@@ -53,6 +53,28 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
   const isBusy = containerState === 'starting' || containerState === 'stopping' || containerState === 'restarting';
   const configDisabled = !isRunning;
 
+  // Clear actionBusy when polled status confirms the state change
+  const actionStartRef = useRef(0);
+  useEffect(() => {
+    if (!actionBusy) return;
+    const real = deriveContainerState(status);
+    const elapsed = Date.now() - actionStartRef.current;
+    // For restart, require at least 5s before checking (pod hasn't started restarting yet)
+    const minWait = actionBusy === 'restarting' ? 5000 : 0;
+    if (elapsed >= minWait && (
+      (actionBusy === 'stopping' && (real === 'stopped' || real === 'offline')) ||
+      (actionBusy === 'starting' && real === 'running') ||
+      (actionBusy === 'restarting' && real === 'running')
+    )) {
+      setActionBusy(null);
+      return;
+    }
+    // Safety timeout: clear after 60s regardless
+    const remaining = Math.max(60000 - elapsed, 0);
+    const timer = setTimeout(() => { setActionBusy(null); refresh(); }, remaining);
+    return () => clearTimeout(timer);
+  }, [status, actionBusy]);
+
   // Load configured env vars
   useEffect(() => {
     if (!isRunning) return;
@@ -64,6 +86,7 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
 
   async function handleAction(action: 'start' | 'stop' | 'restart') {
     const labelMap = { start: 'starting', stop: 'stopping', restart: 'restarting' } as const;
+    actionStartRef.current = Date.now();
     setActionBusy(labelMap[action]);
     setError('');
     setSuccess('');
@@ -90,11 +113,10 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
       const res = await fetch(`/api/openclaw/${action}`, { method: 'POST' });
       if (!res.ok) throw new Error(`${action} failed: ${res.status}`);
       refresh();
+      // actionBusy is cleared by the useEffect above when status reflects the change
     } catch (err) {
       setError(String(err));
-    } finally {
-      // Clear busy after a short delay to let status polling catch up
-      setTimeout(() => { setActionBusy(null); refresh(); }, 3000);
+      setActionBusy(null);
     }
   }
 
