@@ -11,6 +11,7 @@ interface Config {
   ollama?: { endpoint: string };
   wizardCompleted?: boolean;
   pendingEnv?: { envs: Record<string, string>; patchBypass: boolean } | null;
+  pendingConfig?: { entries: { key: string; value: string }[] } | null;
 }
 
 function loadConfig(): Config {
@@ -133,8 +134,6 @@ export async function getApiKeyStatus(username: string): Promise<string[]> {
 // Triggers a pod restart so the new env vars take effect.
 export async function setApiKeys(username: string, keys: Record<string, string>): Promise<boolean> {
   const ns = `openclaw-${username}`;
-  // Patch BOTH the main container AND init-config so the init container
-  // can detect API keys and set agents.defaults.model on next restart.
   return patchDeploymentEnvVarsBoth(ns, 'openclaw', 'openclaw', 'init-config', keys);
 }
 
@@ -153,6 +152,48 @@ export function setPendingEnv(pending: { envs: Record<string, string>; patchBypa
 
 export function getPendingEnv(): { envs: Record<string, string>; patchBypass: boolean } | null {
   return loadConfig().pendingEnv ?? null;
+}
+
+// Store pending config entries to be applied after restart (when pod is running).
+export function setPendingConfig(entries: { key: string; value: string }[] | null) {
+  saveConfig({ pendingConfig: entries ? { entries } : null });
+}
+
+export function getPendingConfig(): { entries: { key: string; value: string }[] } | null {
+  return loadConfig().pendingConfig ?? null;
+}
+
+// Apply pending config entries if the pod is running.
+// Called from status polling — non-blocking, fire-and-forget.
+let applyingPendingConfig = false;
+export async function applyPendingConfigIfReady(username: string): Promise<void> {
+  if (applyingPendingConfig) return;
+  const pending = getPendingConfig();
+  if (!pending || pending.entries.length === 0) {
+    setPendingConfig(null);
+    return;
+  }
+
+  // Check if OpenClaw pod is actually running
+  const healthy = await checkHealth();
+  if (!healthy) return;
+
+  applyingPendingConfig = true;
+  console.log(`[openclaw] applying ${pending.entries.length} pending config entries`);
+  try {
+    const results = await Promise.all(
+      pending.entries.map((e) => setConfigViaExec(username, e.key, e.value)),
+    );
+    const failed = results.filter((ok) => !ok).length;
+    if (failed > 0) {
+      console.error(`[openclaw] ${failed}/${pending.entries.length} pending config sets failed`);
+    } else {
+      console.log('[openclaw] all pending config entries applied successfully');
+    }
+    setPendingConfig(null);
+  } finally {
+    applyingPendingConfig = false;
+  }
 }
 
 // Apply pending env vars (if any) and restart.

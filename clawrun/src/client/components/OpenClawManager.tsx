@@ -136,12 +136,11 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
       }
 
       if (configEntries.length > 0) {
-        const res = await fetch('/api/openclaw/config/batch', {
+        await fetch('/api/openclaw/pending-config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ entries: configEntries }),
         });
-        if (!res.ok) throw new Error(t('manager.configWriteFailed', { status: String(res.status) }));
       }
 
       // 2. Store pending env vars on server (applied on next restart)

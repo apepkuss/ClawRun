@@ -130,6 +130,18 @@ router.post('/pending-env', (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /api/openclaw/pending-config   body: { entries: [{ key, value }] }
+// Store pending config entries; applied after restart when pod is running.
+router.post('/pending-config', (req, res) => {
+  const { entries } = req.body as { entries: { key: string; value: unknown }[] };
+  const serialized = (entries ?? []).map((e) => ({
+    key: e.key,
+    value: typeof e.value === 'string' ? e.value : JSON.stringify(e.value),
+  }));
+  openclaw.setPendingConfig(serialized.length > 0 ? serialized : null);
+  res.json({ ok: true });
+});
+
 // POST /api/openclaw/wizard-complete
 router.post('/wizard-complete', (_req, res) => {
   openclaw.markWizardCompleted();

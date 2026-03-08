@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { checkHealth as openclawHealth, getConnection, autoConfigureToken, autoConfigureUiUrl as autoConfigureOpenclawUiUrl, getReplicaInfo } from '../services/openclaw';
+import { checkHealth as openclawHealth, getConnection, autoConfigureToken, autoConfigureUiUrl as autoConfigureOpenclawUiUrl, getReplicaInfo, applyPendingConfigIfReady } from '../services/openclaw';
 import { checkStatus as ollamaStatus, getConnection as getOllamaConnection, autoConfigureUiUrl as autoConfigureOllamaUiUrl } from '../services/ollama';
 import { getAppManagerState } from '../services/k8s';
 import { getOlaresUsername } from '../services/app-manager';
@@ -38,6 +38,11 @@ router.get('/', async (req, res) => {
   if (openclawReady) {
     await autoConfigureToken(username);
     conn = getConnection();
+  }
+
+  // Apply pending config entries after restart (fire-and-forget)
+  if (openclawHealthy) {
+    void applyPendingConfigIfReady(username);
   }
 
   // Auto-detect external UI URLs from Olares URL pattern
