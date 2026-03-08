@@ -44,13 +44,19 @@ spec:
               node dist/index.js config set \
                 gateway.controlUi.dangerouslyDisableDeviceAuth true
 
-              # Set default model only when Ollama is NOT configured (wizard manages model when Ollama is active)
-              if [ -z "$OLLAMA_API_KEY" ]; then
-                if [ -n "$ZAI_API_KEY" ]; then
+              # Set default model ONLY on first install (config file does not exist yet).
+              # After first install, ClawRun wizard manages the default model — never override it.
+              CONFIG_FILE="$HOME/.openclaw/config.json"
+              if [ ! -f "$CONFIG_FILE" ] || [ ! -s "$CONFIG_FILE" ]; then
+                if [ -n "$OLLAMA_API_KEY" ]; then
+                  echo "init-config: first install with Ollama, skipping default model (wizard will configure)"
+                elif [ -n "$ZAI_API_KEY" ]; then
                   node dist/index.js config set agents.defaults.model zai/glm-4.7-flash
                 elif [ -n "$OPENAI_API_KEY" ]; then
                   node dist/index.js config set agents.defaults.model openai/gpt-4o
                 fi
+              else
+                echo "init-config: config exists, preserving user-configured model"
               fi
           env:
             - name: HOME
