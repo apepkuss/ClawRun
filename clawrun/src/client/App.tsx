@@ -167,6 +167,7 @@ export default function App() {
                   endpoint={status?.openclaw.endpoint ?? null}
                   installState={status?.openclaw.installState ?? null}
                   installProgress={status?.openclaw.installProgress ?? null}
+                  replicas={status?.openclaw.replicas ?? null}
                   busy={busyApps['openclaw']}
                   installOptions={[
                     { label: t('common.install'), onClick: () => { void installApp('openclaw'); } },

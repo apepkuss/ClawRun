@@ -12,6 +12,7 @@ interface Props {
   endpoint: string | null;
   installState: string | null;
   installProgress: string | null;
+  replicas: { desired: number; ready: number } | null;
   onUninstall: () => void;
   onOpen?: () => void;
   installOptions?: InstallOption[];
@@ -40,7 +41,7 @@ const STATE_MAP: Record<string, { key: string; color: 'amber' | 'red' }> = {
   upgrading:        { key: 'status.upgrading', color: 'amber' },
 };
 
-export function AppCard({ name, healthy, endpoint, installState, installProgress, onUninstall, onOpen, installOptions, busy }: Props) {
+export function AppCard({ name, healthy, endpoint, installState, installProgress, replicas, onUninstall, onOpen, installOptions, busy }: Props) {
   const { t } = useLocale();
 
   const stateInfo = installState ? STATE_MAP[installState] : null;
@@ -67,9 +68,14 @@ export function AppCard({ name, healthy, endpoint, installState, installProgress
     badgeText = pct > 0 && pct < 100 ? `${stateText} ${pct.toFixed(1)}%` : stateText;
     showSpinner = true;
   } else if (isRunningCrd && !healthy) {
-    badgeClass = 'bg-amber-100 text-amber-700';
-    badgeText = t('status.starting');
-    showSpinner = true;
+    if (replicas && replicas.desired === 0) {
+      badgeClass = 'bg-gray-200 text-gray-600';
+      badgeText = t('status.stopped');
+    } else {
+      badgeClass = 'bg-amber-100 text-amber-700';
+      badgeText = t('status.starting');
+      showSpinner = true;
+    }
   } else if (healthy) {
     badgeClass = 'bg-green-100 text-green-700';
     badgeText = t('status.running');
@@ -101,7 +107,7 @@ export function AppCard({ name, healthy, endpoint, installState, installProgress
               {t('common.uninstall')}
             </button>
           </div>
-        ) : (isInProgress || busy || (isRunningCrd && !healthy)) ? (
+        ) : (isInProgress || busy || (isRunningCrd && !healthy && !(replicas && replicas.desired === 0))) ? (
           (() => {
             const pct = installProgress ? parseFloat(installProgress) : 0;
             const hasRealProgress = pct > 0 && pct < 100;
