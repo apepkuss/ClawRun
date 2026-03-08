@@ -59,9 +59,12 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
     if (!actionBusy) return;
     const real = deriveContainerState(status);
     const elapsed = Date.now() - actionStartRef.current;
+    // For restart, require 5s before checking (pod hasn't started restarting yet)
     const minWait = actionBusy === 'restarting' ? 5000 : 0;
+    // Only accept definitive states: 'stopped' (desired=0) confirms stop,
+    // 'offline' (replicas=null) is a transient kubectl query failure — ignore it.
     if (elapsed >= minWait && (
-      (actionBusy === 'stopping' && (real === 'stopped' || real === 'offline')) ||
+      (actionBusy === 'stopping' && real === 'stopped') ||
       (actionBusy === 'starting' && real === 'running') ||
       (actionBusy === 'restarting' && real === 'running')
     )) {
