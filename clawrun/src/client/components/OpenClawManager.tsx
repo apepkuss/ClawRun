@@ -261,6 +261,7 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
             {t('manager.restart')}
           </button>
         </div>
+        {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
       </div>
 
       {/* Config Sections */}
