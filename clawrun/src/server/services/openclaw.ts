@@ -181,10 +181,12 @@ export async function applyPendingConfigIfReady(username: string): Promise<void>
   applyingPendingConfig = true;
   console.log(`[openclaw] applying ${pending.entries.length} pending config entries`);
   try {
-    const results = await Promise.all(
-      pending.entries.map((e) => setConfigViaExec(username, e.key, e.value)),
-    );
-    const failed = results.filter((ok) => !ok).length;
+    let failed = 0;
+    // Run sequentially to avoid OOMKill — each `config set` spawns a full Node.js process
+    for (const e of pending.entries) {
+      const ok = await setConfigViaExec(username, e.key, e.value);
+      if (!ok) failed++;
+    }
     if (failed > 0) {
       console.error(`[openclaw] ${failed}/${pending.entries.length} pending config sets failed`);
     } else {
