@@ -2,15 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAppStatus } from './hooks/useAppStatus';
 import { AppCard } from './components/AppCard';
 import { ConnectPanel } from './components/ConnectPanel';
-import { SetupWizard } from './components/SetupWizard';
+import { OpenClawManager } from './components/OpenClawManager';
 
-type Tab = 'dashboard' | 'settings';
+type View = 'dashboard' | 'settings' | 'openclaw-manager';
 
 export default function App() {
   const { status, loading, refresh, setFastPoll } = useAppStatus();
-  const [tab, setTab] = useState<Tab>('dashboard');
-  const [showWizard, setShowWizard] = useState(false);
-  const [wizardChecked, setWizardChecked] = useState(false);
+  const [view, setView] = useState<View>('dashboard');
   const [busyApps, setBusyApps] = useState<Record<string, string>>({});
 
   // Clear brief busy state once CRD installState takes over
@@ -36,18 +34,6 @@ export default function App() {
       Object.keys(busyApps).length > 0;
     setFastPoll(anyInProgress);
   }, [status, busyApps]);
-
-  // Auto-detect first-time setup: show wizard when OpenClaw is healthy but wizard not completed
-  useEffect(() => {
-    if (!status?.openclaw.healthy || wizardChecked) return;
-    fetch('/api/openclaw/wizard-status')
-      .then((r) => r.json())
-      .then((d: { completed: boolean }) => {
-        if (!d.completed) setShowWizard(true);
-        setWizardChecked(true);
-      })
-      .catch(() => setWizardChecked(true));
-  }, [status?.openclaw.healthy, wizardChecked]);
 
   async function connectOpenClaw(values: Record<string, string>) {
     await fetch('/api/openclaw/connect', {
@@ -133,36 +119,30 @@ export default function App() {
       {/* Header */}
       <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight">ClawRun</h1>
-        <div className="flex gap-1">
-          <button
-            onClick={() => setTab('dashboard')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === 'dashboard' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
-            }`}
-          >
-            应用状态
-          </button>
-          {status?.openclaw.healthy && (
+        {view !== 'openclaw-manager' && (
+          <div className="flex gap-1">
             <button
-              onClick={() => setShowWizard(true)}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium text-blue-600 border border-blue-300 hover:bg-blue-50 transition-colors"
+              onClick={() => setView('dashboard')}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                view === 'dashboard' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+              }`}
             >
-              配置向导
+              应用状态
             </button>
-          )}
-          <button
-            onClick={() => setTab('settings')}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              tab === 'settings' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
-            }`}
-          >
-            配置
-          </button>
-        </div>
+            <button
+              onClick={() => setView('settings')}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                view === 'settings' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              配置
+            </button>
+          </div>
+        )}
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-8">
-        {tab === 'dashboard' && (
+        {view === 'dashboard' && (
           <div className="flex flex-col gap-6">
             <h2 className="text-base font-semibold text-gray-500 uppercase tracking-wide">
               应用状态
@@ -181,14 +161,7 @@ export default function App() {
                   installOptions={[
                     { label: '安装', onClick: () => { void installApp('openclaw'); } },
                   ]}
-                  onOpen={() => {
-                    let url = status?.openclaw.uiUrl ?? status?.openclaw.endpoint ?? '';
-                    if (url && status?.openclaw.token) {
-                      const sep = url.includes('?') ? '&' : '?';
-                      url = `${url}${sep}token=${encodeURIComponent(status.openclaw.token)}`;
-                    }
-                    window.open(url, '_blank');
-                  }}
+                  onOpen={() => setView('openclaw-manager')}
                   onUninstall={() => { void uninstall('openclaw'); }}
                 />
               </div>
@@ -196,7 +169,7 @@ export default function App() {
           </div>
         )}
 
-        {tab === 'settings' && (
+        {view === 'settings' && (
           <div className="flex flex-col gap-6">
             <h2 className="text-base font-semibold text-gray-500 uppercase tracking-wide">
               OpenClaw 配置
@@ -219,17 +192,15 @@ export default function App() {
             </div>
           </div>
         )}
-      </main>
 
-      <SetupWizard
-        open={showWizard}
-        onClose={() => {
-          setShowWizard(false);
-          refresh();
-        }}
-        ollamaHealthy={status?.ollama.healthy ?? false}
-        ollamaEndpoint={status?.ollama.endpoint ?? null}
-      />
+        {view === 'openclaw-manager' && status && (
+          <OpenClawManager
+            status={status}
+            onBack={() => setView('dashboard')}
+            refresh={refresh}
+          />
+        )}
+      </main>
     </div>
   );
 }

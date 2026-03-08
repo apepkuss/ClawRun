@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 export interface AppStatus {
-  openclaw: { healthy: boolean; endpoint: string | null; uiUrl: string | null; token: string | null; installState: string | null; installProgress: string | null };
+  openclaw: { healthy: boolean; endpoint: string | null; uiUrl: string | null; token: string | null; installState: string | null; installProgress: string | null; replicas: { desired: number; ready: number } | null };
   ollama: { healthy: boolean; endpoint: string | null; variant: 'cpu' | 'gpu' | null };
 }
 

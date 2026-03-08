@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { checkHealth as openclawHealth, getConnection, autoConfigureToken, autoConfigureUiUrl as autoConfigureOpenclawUiUrl } from '../services/openclaw';
+import { checkHealth as openclawHealth, getConnection, autoConfigureToken, autoConfigureUiUrl as autoConfigureOpenclawUiUrl, getReplicaInfo } from '../services/openclaw';
 import { checkStatus as ollamaStatus, getConnection as getOllamaConnection, autoConfigureUiUrl as autoConfigureOllamaUiUrl } from '../services/ollama';
 import { getAppManagerState } from '../services/k8s';
 import { getOlaresUsername } from '../services/app-manager';
@@ -22,10 +22,11 @@ function getOlaresBaseDomain(host: string | undefined): string | null {
 router.get('/', async (req, res) => {
   const username = getOlaresUsername();
   const baseDomain = getOlaresBaseDomain(req.headers.host);
-  const [openclawHealthy, ollamaHealthy, openclawInfo] = await Promise.all([
+  const [openclawHealthy, ollamaHealthy, openclawInfo, openclawReplicas] = await Promise.all([
     openclawHealth(),
     ollamaStatus(),
     getAppManagerState('openclaw', username),
+    getReplicaInfo(username),
   ]);
 
   // Sync OpenClaw token from K8s deployment (verifies periodically)
@@ -53,6 +54,7 @@ router.get('/', async (req, res) => {
       token: conn.token || null,
       installState: openclawInfo.state,
       installProgress: openclawInfo.progress,
+      replicas: openclawReplicas,
     },
     ollama: {
       healthy: ollamaHealthy,

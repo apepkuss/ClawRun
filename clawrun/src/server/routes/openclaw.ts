@@ -89,6 +89,28 @@ router.post('/patch-bypass', async (_req, res) => {
   }
 });
 
+// POST /api/openclaw/stop — scale OpenClaw deployment to 0
+router.post('/stop', async (_req, res) => {
+  const username = getOlaresUsername();
+  const ok = await openclaw.stopDeploy(username);
+  if (ok) {
+    res.json({ ok: true });
+  } else {
+    res.status(500).json({ error: 'Failed to stop OpenClaw deployment' });
+  }
+});
+
+// POST /api/openclaw/start — scale OpenClaw deployment to 1
+router.post('/start', async (_req, res) => {
+  const username = getOlaresUsername();
+  const ok = await openclaw.startDeploy(username);
+  if (ok) {
+    res.json({ ok: true });
+  } else {
+    res.status(500).json({ error: 'Failed to start OpenClaw deployment' });
+  }
+});
+
 // POST /api/openclaw/restart — restart OpenClaw deployment
 router.post('/restart', async (_req, res) => {
   const username = getOlaresUsername();

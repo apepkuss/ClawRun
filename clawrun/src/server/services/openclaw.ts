@@ -152,6 +152,67 @@ export async function patchOutboundBypass(username: string): Promise<boolean> {
   return labelNamespace(ns, { 'bytetrade.io/ns-type': 'user-internal' });
 }
 
+// Stop OpenClaw by scaling deployment to 0 replicas.
+export async function stopDeploy(username: string): Promise<boolean> {
+  const ns = `openclaw-${username}`;
+  return new Promise((resolve) => {
+    exec(
+      `kubectl scale deploy/openclaw -n ${ns} --replicas=0`,
+      { timeout: 15000 },
+      (err, _stdout, stderr) => {
+        if (err) {
+          console.error('[openclaw] scale to 0 failed:', stderr || err.message);
+          resolve(false);
+          return;
+        }
+        console.log(`[openclaw] scaled to 0 (ns=${ns})`);
+        resolve(true);
+      },
+    );
+  });
+}
+
+// Start OpenClaw by scaling deployment to 1 replica.
+export async function startDeploy(username: string): Promise<boolean> {
+  const ns = `openclaw-${username}`;
+  return new Promise((resolve) => {
+    exec(
+      `kubectl scale deploy/openclaw -n ${ns} --replicas=1`,
+      { timeout: 15000 },
+      (err, _stdout, stderr) => {
+        if (err) {
+          console.error('[openclaw] scale to 1 failed:', stderr || err.message);
+          resolve(false);
+          return;
+        }
+        console.log(`[openclaw] scaled to 1 (ns=${ns})`);
+        resolve(true);
+      },
+    );
+  });
+}
+
+// Get OpenClaw deployment replica counts.
+export async function getReplicaInfo(username: string): Promise<{ desired: number; ready: number } | null> {
+  const ns = `openclaw-${username}`;
+  return new Promise((resolve) => {
+    exec(
+      `kubectl get deploy/openclaw -n ${ns} -o jsonpath='{.spec.replicas} {.status.readyReplicas}'`,
+      { timeout: 10000 },
+      (err, stdout) => {
+        if (err) {
+          resolve(null);
+          return;
+        }
+        const parts = stdout.replace(/'/g, '').trim().split(' ');
+        const desired = parseInt(parts[0], 10) || 0;
+        const ready = parseInt(parts[1], 10) || 0;
+        resolve({ desired, ready });
+      },
+    );
+  });
+}
+
 // Restart OpenClaw pod via kubectl rollout restart.
 export async function restartDeploy(username: string): Promise<boolean> {
   const ns = `openclaw-${username}`;
