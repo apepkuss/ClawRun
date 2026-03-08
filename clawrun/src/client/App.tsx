@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStatus } from './hooks/useAppStatus';
+import { useLocale } from './locales';
 import { AppCard } from './components/AppCard';
 import { ConnectPanel } from './components/ConnectPanel';
 import { OpenClawManager } from './components/OpenClawManager';
@@ -8,6 +9,7 @@ type View = 'dashboard' | 'settings' | 'openclaw-manager';
 
 export default function App() {
   const { status, loading, refresh, setFastPoll } = useAppStatus();
+  const { locale, setLocale, t } = useLocale();
   const [view, setView] = useState<View>('dashboard');
   const [busyApps, setBusyApps] = useState<Record<string, string>>({});
 
@@ -62,8 +64,8 @@ export default function App() {
   }
 
   async function installApp(appName: string) {
-    if (!confirm(`确认安装 ${appName}？`)) return;
-    setBusy(appName, '安装中…');
+    if (!confirm(t('app.confirmInstall', { name: appName }))) return;
+    setBusy(appName, t('status.installing'));
     try {
       const res = await fetch(`/api/apps/${appName}/install`, {
         method: 'POST',
@@ -72,42 +74,42 @@ export default function App() {
       });
       if (!res.ok) {
         const text = await res.text();
-        alert(`安装 ${appName} 失败 (${res.status}): ${text}`);
+        alert(t('app.installFailed', { name: appName, status: String(res.status), detail: text }));
         setBusy(appName, null);
         return;
       }
       const data = await res.json();
       if (isAppServiceError(data)) {
-        alert(`安装 ${appName} 失败: ${data.message || JSON.stringify(data)}`);
+        alert(t('app.installFailed', { name: appName, status: '', detail: String(data.message || JSON.stringify(data)) }));
         setBusy(appName, null);
         return;
       }
     } catch (err) {
-      alert(`安装 ${appName} 请求异常: ${String(err)}`);
+      alert(t('app.installError', { name: appName, detail: String(err) }));
       setBusy(appName, null);
       return;
     }
-    setBusy(appName, '部署中…');
+    setBusy(appName, t('status.deploying'));
     setFastPoll(true);
     refresh();
   }
 
   async function uninstall(name: string) {
-    if (!confirm(`确认卸载 ${name}？`)) return;
-    setBusy(name, '卸载中…');
+    if (!confirm(t('app.confirmUninstall', { name }))) return;
+    setBusy(name, t('status.uninstalling'));
     try {
       const res = await fetch(`/api/apps/${name}/uninstall`, { method: 'POST' });
       if (!res.ok) {
         const text = await res.text();
-        alert(`卸载 ${name} 失败 (${res.status}): ${text}`);
+        alert(t('app.uninstallFailed', { name, status: String(res.status), detail: text }));
       } else {
         const data = await res.json();
         if (isAppServiceError(data)) {
-          alert(`卸载 ${name} 失败: ${data.message || JSON.stringify(data)}`);
+          alert(t('app.uninstallFailed', { name, status: '', detail: String(data.message || JSON.stringify(data)) }));
         }
       }
     } catch (err) {
-      alert(`卸载 ${name} 请求异常: ${String(err)}`);
+      alert(t('app.uninstallError', { name, detail: String(err) }));
     }
     setBusy(name, null);
     setFastPoll(true);
@@ -119,36 +121,44 @@ export default function App() {
       {/* Header */}
       <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight">ClawRun</h1>
-        {view !== 'openclaw-manager' && (
-          <div className="flex gap-1">
-            <button
-              onClick={() => setView('dashboard')}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                view === 'dashboard' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              应用状态
-            </button>
-            <button
-              onClick={() => setView('settings')}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                view === 'settings' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              配置
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {view !== 'openclaw-manager' && (
+            <div className="flex gap-1">
+              <button
+                onClick={() => setView('dashboard')}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  view === 'dashboard' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {t('app.tabs.status')}
+              </button>
+              <button
+                onClick={() => setView('settings')}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  view === 'settings' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {t('app.tabs.config')}
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => setLocale(locale === 'en' ? 'zh' : 'en')}
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors px-2 py-1 rounded border border-gray-200"
+          >
+            {locale === 'en' ? '中文' : 'EN'}
+          </button>
+        </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-8">
         {view === 'dashboard' && (
           <div className="flex flex-col gap-6">
             <h2 className="text-base font-semibold text-gray-500 uppercase tracking-wide">
-              应用状态
+              {t('app.tabs.status')}
             </h2>
             {loading ? (
-              <p className="text-gray-400 text-sm">加载中…</p>
+              <p className="text-gray-400 text-sm">{t('common.loading')}</p>
             ) : (
               <div className="grid grid-cols-1 gap-4">
                 <AppCard
@@ -159,7 +169,7 @@ export default function App() {
                   installProgress={status?.openclaw.installProgress ?? null}
                   busy={busyApps['openclaw']}
                   installOptions={[
-                    { label: '安装', onClick: () => { void installApp('openclaw'); } },
+                    { label: t('common.install'), onClick: () => { void installApp('openclaw'); } },
                   ]}
                   onOpen={() => setView('openclaw-manager')}
                   onUninstall={() => { void uninstall('openclaw'); }}
@@ -172,16 +182,16 @@ export default function App() {
         {view === 'settings' && (
           <div className="flex flex-col gap-6">
             <h2 className="text-base font-semibold text-gray-500 uppercase tracking-wide">
-              OpenClaw 配置
+              {t('app.openclawConfig')}
             </h2>
             <div className="bg-white border rounded-xl p-5 shadow-sm">
               <ConnectPanel
                 key={`openclaw-${status?.openclaw.endpoint ?? ''}`}
-                label="OpenClaw 连接"
+                label={t('app.openclawConnection')}
                 fields={[
-                  { key: 'endpoint', label: '健康检查端点（内网）', placeholder: 'http://openclaw-svc.openclaw-apepkuss:18789' },
-                  { key: 'token', label: 'Gateway Token', placeholder: 'OPENCLAW_GATEWAY_TOKEN 的值', type: 'password' },
-                  { key: 'uiUrl', label: 'Web UI 地址（外网）', placeholder: 'https://openclaw.xxxx.apepkuss.olares.cn' },
+                  { key: 'endpoint', label: t('app.healthEndpoint'), placeholder: 'http://openclaw-svc.openclaw-apepkuss:18789' },
+                  { key: 'token', label: t('app.gatewayToken'), placeholder: t('app.gatewayTokenPlaceholder'), type: 'password' },
+                  { key: 'uiUrl', label: t('app.uiUrl'), placeholder: 'https://openclaw.xxxx.apepkuss.olares.cn' },
                 ]}
                 initialValues={{
                   endpoint: status?.openclaw.endpoint ?? '',

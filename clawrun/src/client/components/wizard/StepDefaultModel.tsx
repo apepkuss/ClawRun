@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocale } from '../../locales';
 import { PROVIDERS, POPULAR_MODELS } from './constants';
 import type { WizardState } from './types';
 
@@ -9,9 +10,9 @@ interface Props {
 }
 
 export function StepDefaultModel({ state, onChange, ollamaHealthy }: Props) {
+  const { t } = useLocale();
   const ollamaConfigured = state.useOllama && ollamaHealthy && state.ollama.baseUrl.trim();
 
-  // Collect models from configured cloud providers
   const configuredProviders = PROVIDERS.filter((p) => state.providers[p.id]?.trim());
   const availableModels = configuredProviders.flatMap(
     (p) => POPULAR_MODELS[p.id] ?? [],
@@ -23,21 +24,20 @@ export function StepDefaultModel({ state, onChange, ollamaHealthy }: Props) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500">选择 OpenClaw 默认使用的 AI 模型。</p>
+      <p className="text-sm text-gray-500">{t('model.description')}</p>
 
       {ollamaConfigured ? (
-        /* Ollama mode: simple model name input only */
         <div className="space-y-3">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-700">
-              已启用 Ollama，请输入已下载的模型标识。
+              {t('model.ollamaHint')}
             </p>
             <p className="text-xs text-blue-500 mt-1">
-              请确保已在 Ollama 应用中下载对应模型，例如 ollama/qwen3:0.6b
+              {t('model.ollamaExample')}
             </p>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">模型标识</label>
+            <label className="block text-xs text-gray-500 mb-1">{t('model.modelId')}</label>
             <input
               type="text"
               value={state.defaultModel}
@@ -50,7 +50,7 @@ export function StepDefaultModel({ state, onChange, ollamaHealthy }: Props) {
       ) : availableModels.length === 0 ? (
         <div className="bg-gray-50 border rounded-lg p-4">
           <p className="text-sm text-gray-500">
-            暂无已配置的模型服务商。请返回上一步配置 API Key，或跳过此步骤。
+            {t('model.noProviders')}
           </p>
         </div>
       ) : (
@@ -81,9 +81,8 @@ export function StepDefaultModel({ state, onChange, ollamaHealthy }: Props) {
             ))}
           </div>
 
-          {/* Custom model input */}
           <div className="border-t pt-3 mt-3">
-            <label className="block text-xs text-gray-500 mb-1">或输入自定义模型标识</label>
+            <label className="block text-xs text-gray-500 mb-1">{t('model.customModel')}</label>
             <input
               type="text"
               value={state.defaultModel}

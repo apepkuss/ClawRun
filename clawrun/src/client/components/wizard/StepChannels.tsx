@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocale } from '../../locales';
 import { CHANNELS } from './constants';
 import type { WizardState } from './types';
 
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function StepChannels({ state, onChange }: Props) {
+  const { t } = useLocale();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   function setField(channelId: string, fieldKey: string, value: string) {
@@ -30,16 +32,17 @@ export function StepChannels({ state, onChange }: Props) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-gray-500">
-        配置消息通道后，你可以通过 Telegram、飞书等平台与 OpenClaw 交互。所有通道均为可选配置。
+        {t('channels.description')}
       </p>
       {CHANNELS.map((ch) => {
         const isOpen = expanded === ch.id;
         const configured = hasConfig(ch.id);
+        const channelName = t('channel.' + ch.id);
 
         if (ch.fields.length === 0) {
           return (
             <div key={ch.id} className="border rounded-lg px-4 py-3 text-sm text-gray-400">
-              {ch.name}（即将支持）
+              {t('channels.comingSoon', { name: channelName })}
             </div>
           );
         }
@@ -51,11 +54,11 @@ export function StepChannels({ state, onChange }: Props) {
               onClick={() => setExpanded(isOpen ? null : ch.id)}
               className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
             >
-              <span className="text-sm font-medium text-gray-700">{ch.name}</span>
+              <span className="text-sm font-medium text-gray-700">{channelName}</span>
               <div className="flex items-center gap-2">
                 {configured && (
                   <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                    已配置
+                    {t('channels.configured')}
                   </span>
                 )}
                 <span className="text-gray-400 text-xs">{isOpen ? '\u25B2' : '\u25BC'}</span>
@@ -70,7 +73,7 @@ export function StepChannels({ state, onChange }: Props) {
                       type={f.type ?? 'text'}
                       value={state.channels[ch.id]?.[f.key] ?? ''}
                       onChange={(e) => setField(ch.id, f.key, e.target.value)}
-                      placeholder={`输入 ${f.label}`}
+                      placeholder={t('channels.enterField', { label: f.label })}
                       className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-300 focus:outline-none"
                     />
                   </div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocale } from '../locales';
 
 interface Props {
   label: string;
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function ConnectPanel({ label, fields, onConnect, initialValues }: Props) {
+  const { t } = useLocale();
   const [values, setValues] = useState<Record<string, string>>(initialValues ?? {});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -44,7 +46,7 @@ export function ConnectPanel({ label, fields, onConnect, initialValues }: Props)
         disabled={saving}
         className="mt-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
       >
-        {saving ? '保存中…' : saved ? '✓ 已保存' : '保存'}
+        {saving ? t('common.saving') : saved ? t('common.saved') : t('common.save')}
       </button>
     </form>
   );

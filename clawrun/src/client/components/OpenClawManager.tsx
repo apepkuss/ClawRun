@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocale } from '../locales';
 import { StepProviders } from './wizard/StepProviders';
 import { StepDefaultModel } from './wizard/StepDefaultModel';
 import { StepChannels } from './wizard/StepChannels';
@@ -30,19 +31,18 @@ function deriveContainerState(status: AppStatus): ContainerState {
   if (replicas.desired === 0) return 'stopped';
   if (replicas.desired > 0 && replicas.ready > 0 && healthy) return 'running';
   if (replicas.desired > 0 && replicas.ready === 0) return 'starting';
-  // desired > 0, ready > 0 but not healthy — could be restarting
   if (replicas.desired > 0 && !healthy) return 'starting';
   return 'offline';
 }
 
 export function OpenClawManager({ status, onBack, refresh }: Props) {
+  const { t } = useLocale();
   const [state, setState] = useState<WizardState>(initialWizardState);
   const [configuredEnvVars, setConfiguredEnvVars] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  // No pendingEnv state — env patches are applied directly during save
 
   const containerState = actionBusy
     ? (actionBusy as ContainerState)
@@ -59,7 +59,6 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
     if (!actionBusy) return;
     const real = deriveContainerState(status);
     const elapsed = Date.now() - actionStartRef.current;
-    // For restart, require at least 5s before checking (pod hasn't started restarting yet)
     const minWait = actionBusy === 'restarting' ? 5000 : 0;
     if (elapsed >= minWait && (
       (actionBusy === 'stopping' && (real === 'stopped' || real === 'offline')) ||
@@ -69,7 +68,6 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
       setActionBusy(null);
       return;
     }
-    // Safety timeout: clear after 60s regardless
     const remaining = Math.max(60000 - elapsed, 0);
     const timer = setTimeout(() => { setActionBusy(null); refresh(); }, remaining);
     return () => clearTimeout(timer);
@@ -94,7 +92,6 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
       const res = await fetch(`/api/openclaw/${action}`, { method: 'POST' });
       if (!res.ok) throw new Error(`${action} failed: ${res.status}`);
       refresh();
-      // actionBusy is cleared by the useEffect above when status reflects the change
     } catch (err) {
       setError(String(err));
       setActionBusy(null);
@@ -141,7 +138,7 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ entries: configEntries }),
         });
-        if (!res.ok) throw new Error(`配置写入失败: ${res.status}`);
+        if (!res.ok) throw new Error(t('manager.configWriteFailed', { status: String(res.status) }));
       }
 
       // 2. Store pending env vars on server (applied on next restart)
@@ -149,7 +146,6 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
       for (const p of PROVIDERS) {
         const key = state.providers[p.id]?.trim();
         if (state.useOllama) {
-          // When Ollama is enabled, clear all cloud API keys to avoid conflicts
           envPatch[p.envVar] = key || '';
         } else if (key) {
           envPatch[p.envVar] = key;
@@ -172,7 +168,7 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
       // Mark wizard complete (in case first time)
       await fetch('/api/openclaw/wizard-complete', { method: 'POST' });
 
-      setSuccess('配置已保存。点击"重启"使配置生效。');
+      setSuccess(t('manager.configSaved'));
     } catch (err) {
       setError(String(err));
     } finally {
@@ -190,15 +186,22 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
   }
 
   // Container state badge
-  const stateConfig: Record<ContainerState, { text: string; color: string }> = {
-    running:    { text: '运行中', color: 'bg-green-100 text-green-700' },
-    stopped:    { text: '已停止', color: 'bg-gray-200 text-gray-600' },
-    starting:   { text: '启动中…', color: 'bg-amber-100 text-amber-700' },
-    stopping:   { text: '停止中…', color: 'bg-amber-100 text-amber-700' },
-    restarting:  { text: '重启中…', color: 'bg-amber-100 text-amber-700' },
-    offline:    { text: '离线', color: 'bg-gray-200 text-gray-500' },
+  const stateKeyMap: Record<ContainerState, string> = {
+    running:    'status.running',
+    stopped:    'status.stopped',
+    starting:   'status.starting',
+    stopping:   'status.stopping',
+    restarting:  'status.restarting',
+    offline:    'status.offline',
   };
-  const badge = stateConfig[containerState];
+  const stateColorMap: Record<ContainerState, string> = {
+    running:    'bg-green-100 text-green-700',
+    stopped:    'bg-gray-200 text-gray-600',
+    starting:   'bg-amber-100 text-amber-700',
+    stopping:   'bg-amber-100 text-amber-700',
+    restarting:  'bg-amber-100 text-amber-700',
+    offline:    'bg-gray-200 text-gray-500',
+  };
 
   return (
     <div className="space-y-6">
@@ -208,19 +211,19 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
           onClick={onBack}
           className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
         >
-          &larr; 返回
+          &larr; {t('common.back')}
         </button>
-        <h2 className="text-lg font-bold text-gray-800">OpenClaw 管理</h2>
+        <h2 className="text-lg font-bold text-gray-800">{t('manager.title')}</h2>
       </div>
 
       {/* Container Controls */}
       <div className="bg-white border rounded-xl p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <span className="font-semibold text-base">容器状态</span>
-            <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1 ${badge.color}`}>
+            <span className="font-semibold text-base">{t('manager.containerState')}</span>
+            <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1 ${stateColorMap[containerState]}`}>
               {isBusy && <Spinner />}
-              {badge.text}
+              {t(stateKeyMap[containerState])}
             </span>
           </div>
           {isRunning && (
@@ -228,7 +231,7 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
               onClick={openUI}
               className="px-4 py-1.5 text-sm border border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
             >
-              打开 OpenClaw UI
+              {t('manager.openUI')}
             </button>
           )}
         </div>
@@ -238,21 +241,21 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
             disabled={isRunning || isBusy}
             className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            启动
+            {t('manager.start')}
           </button>
           <button
             onClick={() => handleAction('stop')}
             disabled={isStopped || isBusy}
             className="px-4 py-2 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            停止
+            {t('manager.stop')}
           </button>
           <button
             onClick={() => handleAction('restart')}
             disabled={!isRunning || isBusy}
             className="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            重启
+            {t('manager.restart')}
           </button>
         </div>
       </div>
@@ -261,13 +264,13 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
       <div className={configDisabled ? 'opacity-50 pointer-events-none' : ''}>
         {configDisabled && (
           <p className="text-sm text-gray-400 mb-4">
-            OpenClaw 未运行，配置不可用。请先启动容器。
+            {t('manager.configUnavailable')}
           </p>
         )}
 
         {/* Section 1: Providers */}
         <div className="bg-white border rounded-xl p-5 shadow-sm mb-4">
-          <h3 className="text-sm font-bold text-gray-700 mb-3">模型服务</h3>
+          <h3 className="text-sm font-bold text-gray-700 mb-3">{t('manager.modelServices')}</h3>
           <StepProviders
             state={state}
             onChange={setState}
@@ -279,7 +282,7 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
 
         {/* Section 2: Default Model */}
         <div className="bg-white border rounded-xl p-5 shadow-sm mb-4">
-          <h3 className="text-sm font-bold text-gray-700 mb-3">默认模型</h3>
+          <h3 className="text-sm font-bold text-gray-700 mb-3">{t('manager.defaultModel')}</h3>
           <StepDefaultModel
             state={state}
             onChange={setState}
@@ -289,7 +292,7 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
 
         {/* Section 3: Channels */}
         <div className="bg-white border rounded-xl p-5 shadow-sm mb-4">
-          <h3 className="text-sm font-bold text-gray-700 mb-3">消息通道</h3>
+          <h3 className="text-sm font-bold text-gray-700 mb-3">{t('manager.messageChannels')}</h3>
           <StepChannels state={state} onChange={setState} />
         </div>
 
@@ -300,7 +303,7 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
             disabled={saving || configDisabled}
             className="px-6 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            {saving ? '保存中…' : '保存配置'}
+            {saving ? t('common.saving') : t('manager.saveConfig')}
           </button>
           {success && <p className="text-sm text-green-600">{success}</p>}
           {error && <p className="text-sm text-red-500">{error}</p>}

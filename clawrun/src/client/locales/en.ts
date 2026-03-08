@@ -1,0 +1,111 @@
+const en: Record<string, string> = {
+  // Common
+  'common.back': 'Back',
+  'common.save': 'Save',
+  'common.saving': 'Saving…',
+  'common.saved': '✓ Saved',
+  'common.install': 'Install',
+  'common.uninstall': 'Uninstall',
+  'common.open': 'Open',
+  'common.loading': 'Loading…',
+
+  // Status
+  'status.running': 'Running',
+  'status.stopped': 'Stopped',
+  'status.starting': 'Starting…',
+  'status.stopping': 'Stopping…',
+  'status.restarting': 'Restarting…',
+  'status.offline': 'Offline',
+  'status.pending': 'Pending…',
+  'status.downloading': 'Downloading…',
+  'status.installing': 'Installing…',
+  'status.initializing': 'Initializing…',
+  'status.downloadFailed': 'Download Failed',
+  'status.installFailed': 'Install Failed',
+  'status.uninstalling': 'Uninstalling…',
+  'status.resuming': 'Resuming…',
+  'status.suspending': 'Suspending…',
+  'status.upgrading': 'Upgrading…',
+  'status.deploying': 'Deploying…',
+
+  // App
+  'app.tabs.status': 'App Status',
+  'app.tabs.config': 'Settings',
+  'app.confirmInstall': 'Confirm install {{name}}?',
+  'app.confirmUninstall': 'Confirm uninstall {{name}}?',
+  'app.installFailed': 'Install {{name}} failed ({{status}}): {{detail}}',
+  'app.installError': 'Install {{name}} error: {{detail}}',
+  'app.uninstallFailed': 'Uninstall {{name}} failed ({{status}}): {{detail}}',
+  'app.uninstallError': 'Uninstall {{name}} error: {{detail}}',
+  'app.openclawConfig': 'OpenClaw Settings',
+  'app.openclawConnection': 'OpenClaw Connection',
+  'app.healthEndpoint': 'Health Endpoint (Internal)',
+  'app.gatewayToken': 'Gateway Token',
+  'app.gatewayTokenPlaceholder': 'Value of OPENCLAW_GATEWAY_TOKEN',
+  'app.uiUrl': 'Web UI URL (External)',
+  'app.failedCheckMarket': '{{state}}, please check Olares Market for status',
+
+  // OpenClaw Manager
+  'manager.title': 'OpenClaw Management',
+  'manager.containerState': 'Container Status',
+  'manager.openUI': 'Open OpenClaw UI',
+  'manager.start': 'Start',
+  'manager.stop': 'Stop',
+  'manager.restart': 'Restart',
+  'manager.configUnavailable': 'OpenClaw is not running. Configuration is unavailable. Please start the container first.',
+  'manager.modelServices': 'Model Services',
+  'manager.defaultModel': 'Default Model',
+  'manager.messageChannels': 'Message Channels',
+  'manager.saveConfig': 'Save Configuration',
+  'manager.configSaved': 'Configuration saved. Click "Restart" to apply.',
+  'manager.configWriteFailed': 'Config write failed: {{status}}',
+
+  // Providers
+  'providers.cloudProviders': 'Cloud Providers',
+  'providers.cloudDisabledHint': 'Local Ollama is enabled. To use cloud providers, disable the Ollama toggle first.',
+  'providers.cloudHint': 'Enter API Key and save, then click Restart to apply.',
+  'providers.pendingSave': 'Pending',
+  'providers.configured': 'Configured',
+  'providers.configuredPlaceholder': 'Configured (leave empty to keep)',
+  'providers.enterApiKey': 'Enter {{name}} API Key',
+  'providers.localModel': 'Local Model (Ollama)',
+  'providers.enabled': 'Enabled',
+  'providers.disabled': 'Disabled',
+  'providers.ollamaStatus': 'Ollama Status: {{status}}',
+  'providers.ollamaNotRunning': 'Ollama is not running. To use local models, install Ollama from the Dashboard first.',
+  'providers.ollamaBaseUrl': 'Ollama Base URL',
+  'providers.ollamaBaseUrlHint': 'OpenClaw will access Ollama via this address. Use the internal network address.',
+  'providers.ollamaApiKey': 'API Key (Optional)',
+  'providers.ollamaHint': 'Ollama is running. Enable the toggle above to use local models.',
+
+  // Default Model
+  'model.description': 'Select the default AI model for OpenClaw.',
+  'model.ollamaHint': 'Ollama is enabled. Enter the identifier of a downloaded model.',
+  'model.ollamaExample': 'Make sure the model is downloaded in the Ollama app, e.g. ollama/qwen3:0.6b',
+  'model.modelId': 'Model ID',
+  'model.noProviders': 'No model providers configured. Go back to configure API Keys, or skip this step.',
+  'model.customModel': 'Or enter a custom model ID',
+
+  // Channels
+  'channels.description': 'Configure messaging channels to interact with OpenClaw via Telegram, Feishu, and more. All channels are optional.',
+  'channels.comingSoon': '{{name}} (Coming Soon)',
+  'channels.configured': 'Configured',
+  'channels.enterField': 'Enter {{label}}',
+
+  // Provider names
+  'provider.anthropic': 'Anthropic (Claude)',
+  'provider.openai': 'OpenAI (GPT)',
+  'provider.zhipu': 'Zhipu (GLM)',
+  'provider.google': 'Google (Gemini)',
+  'provider.moonshot': 'Moonshot (Kimi)',
+  'provider.minimax': 'MiniMax',
+  'provider.volcano': 'Volcano Engine (Doubao)',
+
+  // Channel names
+  'channel.telegram': 'Telegram',
+  'channel.feishu': 'Feishu',
+  'channel.slack': 'Slack',
+  'channel.discord': 'Discord',
+};
+
+export default en;

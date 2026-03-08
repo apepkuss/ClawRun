@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocale } from '../locales';
 
 interface Model {
   name: string;
@@ -25,6 +26,7 @@ function formatBytes(bytes: number): string {
 }
 
 export function OllamaPanel({ healthy }: Props) {
+  const { t } = useLocale();
   const [models, setModels] = useState<Model[]>([]);
   const [library, setLibrary] = useState<string[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -96,7 +98,7 @@ export function OllamaPanel({ healthy }: Props) {
       .filter((m) => m.name.startsWith(selectedModel + ':'))
       .map((m) => m.name.split(':')[1]),
   );
-  const availableTags = tags.filter((t) => !installedTagsForModel.has(t.tag));
+  const availableTags = tags.filter((tg) => !installedTagsForModel.has(tg.tag));
 
   function selectModel(name: string) {
     setSelectedModel(name);
@@ -107,7 +109,7 @@ export function OllamaPanel({ healthy }: Props) {
   }
 
   async function handleDelete(name: string) {
-    if (!confirm(`确认删除模型 ${name}？`)) return;
+    if (!confirm(t('models.confirmDelete', { name }))) return;
     setMessage('');
     try {
       const res = await fetch('/api/ollama/models', {
@@ -116,10 +118,10 @@ export function OllamaPanel({ healthy }: Props) {
         body: JSON.stringify({ name }),
       });
       if (!res.ok) throw new Error();
-      setMessage(`${name} 已删除`); setMessageOk(true);
+      setMessage(t('models.deleted', { name })); setMessageOk(true);
       setRefreshKey((k) => k + 1);
     } catch {
-      setMessage(`删除 ${name} 失败`); setMessageOk(false);
+      setMessage(t('models.deleteFailed', { name })); setMessageOk(false);
     }
   }
 
@@ -128,7 +130,7 @@ export function OllamaPanel({ healthy }: Props) {
     const name = fullName.trim();
     setPulling(true);
     setMessage('');
-    setPullStatus('准备中…');
+    setPullStatus(t('pull.preparing'));
     setPullPercent(-1);
     try {
       const res = await fetch('/api/ollama/models/pull', {
@@ -138,7 +140,7 @@ export function OllamaPanel({ healthy }: Props) {
       });
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || '服务端错误');
+        throw new Error(text || t('pull.serverError'));
       }
       // Poll for progress
       const poll = (): Promise<void> =>
@@ -151,7 +153,7 @@ export function OllamaPanel({ healthy }: Props) {
                 completed?: number; total?: number;
                 done?: boolean; success?: boolean; error?: string;
               };
-              if (!d.active) { clearInterval(iv); reject(new Error('任务不存在')); return; }
+              if (!d.active) { clearInterval(iv); reject(new Error(t('pull.taskNotFound'))); return; }
               if (d.completed && d.total) {
                 setPullStatus(`${formatBytes(d.completed)} / ${formatBytes(d.total)}`);
               } else if (d.status) {
@@ -161,20 +163,20 @@ export function OllamaPanel({ healthy }: Props) {
               if (d.done) {
                 clearInterval(iv);
                 if (d.success) resolve();
-                else reject(new Error(d.error || '拉取未完成'));
+                else reject(new Error(d.error || t('pull.incomplete')));
               }
             } catch {
               clearInterval(iv);
-              reject(new Error('轮询失败'));
+              reject(new Error(t('pull.pollFailed')));
             }
           }, 1000);
         });
       await poll();
-      setMessage(`${name} 拉取完成`); setMessageOk(true);
+      setMessage(t('pull.completed', { name })); setMessageOk(true);
       setRefreshKey((k) => k + 1);
       setSelectedModel(''); setSearchText(''); setTags([]);
     } catch (e) {
-      setMessage(`拉取失败：${e instanceof Error ? e.message : '请检查模型名称'}`); setMessageOk(false);
+      setMessage(t('pull.failed', { error: e instanceof Error ? e.message : t('pull.checkName') })); setMessageOk(false);
     } finally {
       setPulling(false);
       setPullStatus('');
@@ -183,14 +185,14 @@ export function OllamaPanel({ healthy }: Props) {
   }
 
   if (!healthy) {
-    return <p className="text-sm text-gray-400">Ollama 离线，等待服务启动…</p>;
+    return <p className="text-sm text-gray-400">{t('offline.waiting')}</p>;
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <h3 className="font-medium text-gray-700">已安装模型</h3>
+      <h3 className="font-medium text-gray-700">{t('models.installed')}</h3>
       {models.length === 0 ? (
-        <p className="text-sm text-gray-400">暂无模型</p>
+        <p className="text-sm text-gray-400">{t('models.empty')}</p>
       ) : (
         <ul className="text-sm space-y-1">
           {models.map((m) => (
@@ -201,9 +203,9 @@ export function OllamaPanel({ healthy }: Props) {
                 <button
                   onClick={() => void handleDelete(m.name)}
                   className="text-red-400 hover:text-red-600 text-xs"
-                  title="删除模型"
+                  title={t('models.deleteTitle')}
                 >
-                  删除
+                  {t('models.delete')}
                 </button>
               </span>
             </li>
@@ -213,11 +215,11 @@ export function OllamaPanel({ healthy }: Props) {
 
       {/* Step 1: Model name selection */}
       <div className="mt-2" ref={modelRef}>
-        <label className="text-xs text-gray-500 mb-1 block">选择模型</label>
+        <label className="text-xs text-gray-500 mb-1 block">{t('pull.selectModel')}</label>
         <div className="relative">
           <input
             type="text"
-            placeholder="搜索或输入模型名称，如 qwen2.5"
+            placeholder={t('pull.searchPlaceholder')}
             value={searchText}
             onChange={(e) => {
               setSearchText(e.target.value);
@@ -255,28 +257,28 @@ export function OllamaPanel({ healthy }: Props) {
 
       {/* Step 2: Tag selection */}
       <div ref={tagRef}>
-        <label className="text-xs text-gray-500 mb-1 block">选择版本（Tag）</label>
+        <label className="text-xs text-gray-500 mb-1 block">{t('pull.selectTag')}</label>
         {!selectedModel ? (
           <button
             disabled
             className="w-full border rounded-lg px-3 py-2 text-sm text-left text-gray-300 bg-gray-50 cursor-not-allowed flex justify-between items-center"
           >
-            <span>请先选择模型</span>
+            <span>{t('pull.selectModelFirst')}</span>
             <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
         ) : tagsLoading ? (
-          <p className="text-xs text-gray-400">加载 tag 列表…</p>
+          <p className="text-xs text-gray-400">{t('pull.loadingTags')}</p>
         ) : availableTags.length === 0 ? (
           <div className="flex gap-2 items-center">
-            <p className="text-xs text-gray-400 flex-1">未找到 tag 列表，将拉取默认版本（latest）</p>
+            <p className="text-xs text-gray-400 flex-1">{t('pull.noTags')}</p>
             <button
               onClick={() => void handlePull(selectedModel)}
               disabled={pulling}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             >
-              {pulling ? '下载中…' : '下载 latest'}
+              {pulling ? t('pull.downloading') : t('pull.downloadLatest')}
             </button>
           </div>
         ) : (
@@ -289,8 +291,8 @@ export function OllamaPanel({ healthy }: Props) {
               >
                 <span className={selectedTag ? 'text-gray-700' : 'text-gray-400'}>
                   {selectedTag
-                    ? `${selectedTag}${availableTags.find((t) => t.tag === selectedTag)?.size ? '  (' + availableTags.find((t) => t.tag === selectedTag)!.size + ')' : ''}`
-                    : '点击选择 tag'}
+                    ? `${selectedTag}${availableTags.find((tg) => tg.tag === selectedTag)?.size ? '  (' + availableTags.find((tg) => tg.tag === selectedTag)!.size + ')' : ''}`
+                    : t('pull.selectTag.placeholder')}
                 </span>
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -298,18 +300,18 @@ export function OllamaPanel({ healthy }: Props) {
               </button>
               {tagDropdownOpen && (
                 <ul className="absolute z-10 left-0 right-0 mt-1 max-h-72 overflow-y-auto bg-white border rounded-lg shadow-lg">
-                  {availableTags.map((t) => (
+                  {availableTags.map((tg) => (
                     <li
-                      key={t.tag}
+                      key={tg.tag}
                       onMouseDown={(e) => {
                         e.preventDefault();
-                        setSelectedTag(t.tag);
+                        setSelectedTag(tg.tag);
                         setTagDropdownOpen(false);
                       }}
-                      className={`px-3 py-1.5 text-sm cursor-pointer flex justify-between ${t.tag === selectedTag ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-blue-50'}`}
+                      className={`px-3 py-1.5 text-sm cursor-pointer flex justify-between ${tg.tag === selectedTag ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-blue-50'}`}
                     >
-                      <span>{t.tag}</span>
-                      {t.size && <span className="text-gray-400 ml-2">{t.size}</span>}
+                      <span>{tg.tag}</span>
+                      {tg.size && <span className="text-gray-400 ml-2">{tg.size}</span>}
                     </li>
                   ))}
                 </ul>
@@ -321,7 +323,7 @@ export function OllamaPanel({ healthy }: Props) {
                 disabled={pulling}
                 className="mt-2 w-full px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
               >
-                {pulling ? '下载中…' : `下载 ${selectedModel}:${selectedTag}`}
+                {pulling ? t('pull.downloading') : t('pull.download', { name: `${selectedModel}:${selectedTag}` })}
               </button>
             )}
           </>
@@ -331,7 +333,7 @@ export function OllamaPanel({ healthy }: Props) {
       {/* Download progress */}
       {pulling && (
         <div className="mt-1">
-          <p className="text-xs text-gray-500 mb-1">{pullStatus || '准备中…'}</p>
+          <p className="text-xs text-gray-500 mb-1">{pullStatus || t('pull.preparing')}</p>
           {pullPercent >= 0 && (
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div

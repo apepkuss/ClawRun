@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocale } from '../locales';
 
 export interface InstallOption {
   label: string;
@@ -10,11 +11,11 @@ interface Props {
   healthy: boolean;
   endpoint: string | null;
   installState: string | null;
-  installProgress: string | null; // e.g. "6.71", "100.00"
+  installProgress: string | null;
   onUninstall: () => void;
   onOpen?: () => void;
   installOptions?: InstallOption[];
-  busy?: string; // only for brief "安装中…" / "卸载中…" during API call
+  busy?: string;
 }
 
 function Spinner() {
@@ -26,29 +27,28 @@ function Spinner() {
   );
 }
 
-// Map CRD installState to display info
-const STATE_MAP: Record<string, { text: string; color: 'amber' | 'red' }> = {
-  pending:          { text: '等待中…', color: 'amber' },
-  downloading:      { text: '下载中…', color: 'amber' },
-  installing:       { text: '安装中…', color: 'amber' },
-  initializing:     { text: '初始化中…', color: 'amber' },
-  downloadFailed:   { text: '下载失败', color: 'red' },
-  installFailed:    { text: '安装失败', color: 'red' },
-  uninstalling:     { text: '卸载中…', color: 'amber' },
-  resuming:         { text: '恢复中…', color: 'amber' },
-  suspending:       { text: '暂停中…', color: 'amber' },
-  upgrading:        { text: '升级中…', color: 'amber' },
+const STATE_MAP: Record<string, { key: string; color: 'amber' | 'red' }> = {
+  pending:          { key: 'status.pending', color: 'amber' },
+  downloading:      { key: 'status.downloading', color: 'amber' },
+  installing:       { key: 'status.installing', color: 'amber' },
+  initializing:     { key: 'status.initializing', color: 'amber' },
+  downloadFailed:   { key: 'status.downloadFailed', color: 'red' },
+  installFailed:    { key: 'status.installFailed', color: 'red' },
+  uninstalling:     { key: 'status.uninstalling', color: 'amber' },
+  resuming:         { key: 'status.resuming', color: 'amber' },
+  suspending:       { key: 'status.suspending', color: 'amber' },
+  upgrading:        { key: 'status.upgrading', color: 'amber' },
 };
 
 export function AppCard({ name, healthy, endpoint, installState, installProgress, onUninstall, onOpen, installOptions, busy }: Props) {
-  // Determine effective display state
+  const { t } = useLocale();
+
   const stateInfo = installState ? STATE_MAP[installState] : null;
   const isInProgress = busy || (stateInfo && stateInfo.color === 'amber');
   const isFailed = stateInfo && stateInfo.color === 'red';
   const isRunningCrd = installState === 'running';
   const showInstall = !healthy && !isInProgress && !isFailed && !isRunningCrd && installOptions && installOptions.length > 0;
 
-  // Status badge
   let badgeClass: string;
   let badgeText: string;
   let showSpinner = false;
@@ -59,22 +59,23 @@ export function AppCard({ name, healthy, endpoint, installState, installProgress
     showSpinner = true;
   } else if (isFailed) {
     badgeClass = 'bg-red-100 text-red-700';
-    badgeText = stateInfo!.text;
+    badgeText = t(stateInfo!.key);
   } else if (isInProgress) {
     badgeClass = 'bg-amber-100 text-amber-700';
     const pct = installProgress ? parseFloat(installProgress) : 0;
-    badgeText = pct > 0 && pct < 100 ? `${stateInfo!.text} ${pct.toFixed(1)}%` : stateInfo!.text;
+    const stateText = t(stateInfo!.key);
+    badgeText = pct > 0 && pct < 100 ? `${stateText} ${pct.toFixed(1)}%` : stateText;
     showSpinner = true;
   } else if (isRunningCrd && !healthy) {
     badgeClass = 'bg-amber-100 text-amber-700';
-    badgeText = '启动中…';
+    badgeText = t('status.starting');
     showSpinner = true;
   } else if (healthy) {
     badgeClass = 'bg-green-100 text-green-700';
-    badgeText = '运行中';
+    badgeText = t('status.running');
   } else {
     badgeClass = 'bg-gray-100 text-gray-500';
-    badgeText = '离线';
+    badgeText = t('status.offline');
   }
 
   return (
@@ -91,18 +92,16 @@ export function AppCard({ name, healthy, endpoint, installState, installProgress
       )}
       <div className="flex flex-col gap-2 mt-1">
         {isFailed ? (
-          /* Failed state → show error message + uninstall */
           <div className="flex flex-col gap-2">
-            <p className="text-xs text-red-500">{stateInfo!.text}，请检查 Olares 应用市场确认状态</p>
+            <p className="text-xs text-red-500">{t('app.failedCheckMarket', { state: t(stateInfo!.key) })}</p>
             <button
               onClick={onUninstall}
               className="w-full text-sm py-1.5 rounded-lg border border-red-400 text-red-500 hover:bg-red-50"
             >
-              卸载
+              {t('common.uninstall')}
             </button>
           </div>
         ) : (isInProgress || busy || (isRunningCrd && !healthy)) ? (
-          /* In progress → show progress bar */
           (() => {
             const pct = installProgress ? parseFloat(installProgress) : 0;
             const hasRealProgress = pct > 0 && pct < 100;
@@ -116,7 +115,6 @@ export function AppCard({ name, healthy, endpoint, installState, installProgress
             );
           })()
         ) : showInstall ? (
-          /* Offline with install options → show install button(s) only */
           <div className="flex gap-2">
             {installOptions!.map((opt) => (
               <button
@@ -129,7 +127,6 @@ export function AppCard({ name, healthy, endpoint, installState, installProgress
             ))}
           </div>
         ) : (
-          /* Running or offline without install options → show Open UI + Uninstall */
           <div className="flex gap-2">
             {onOpen && (
               <button
@@ -137,14 +134,14 @@ export function AppCard({ name, healthy, endpoint, installState, installProgress
                 disabled={!healthy}
                 className="flex-1 text-sm py-1.5 rounded-lg border border-blue-500 text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                打开
+                {t('common.open')}
               </button>
             )}
             <button
               onClick={onUninstall}
               className="flex-1 text-sm py-1.5 rounded-lg border border-red-400 text-red-500 hover:bg-red-50"
             >
-              卸载
+              {t('common.uninstall')}
             </button>
           </div>
         )}
