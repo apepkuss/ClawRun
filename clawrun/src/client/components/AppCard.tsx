@@ -137,7 +137,7 @@ export function AppCard({ name, healthy, endpoint, installState, installProgress
                 disabled={!healthy}
                 className="flex-1 text-sm py-1.5 rounded-lg border border-blue-500 text-blue-600 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                打开 UI
+                打开
               </button>
             )}
             <button
