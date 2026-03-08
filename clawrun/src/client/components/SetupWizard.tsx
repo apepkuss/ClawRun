@@ -23,10 +23,11 @@ export function SetupWizard({ open, onClose, ollamaHealthy, ollamaEndpoint }: Pr
   const [error, setError] = useState('');
   const [configuredEnvVars, setConfiguredEnvVars] = useState<string[]>([]);
 
-  // Reset to first step whenever wizard opens
+  // Reset wizard state whenever it opens
   useEffect(() => {
     if (open) {
       setStep(0);
+      setState(initialWizardState);
       setError('');
     }
   }, [open]);
