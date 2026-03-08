@@ -13,17 +13,13 @@ interface Props {
 export function StepProviders({ state, onChange, configuredEnvVars, ollamaHealthy, ollamaEndpoint }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  // Mutual exclusion: cloud providers vs local Ollama
-  const hasAnyCloudKey = PROVIDERS.some((p) => state.providers[p.id]?.trim());
+  // When Ollama is enabled, cloud provider section is dimmed (but keys are preserved)
   const cloudDisabled = state.useOllama;
-  const ollamaDisabled = hasAnyCloudKey;
 
   function setKey(providerId: string, value: string) {
     onChange({
       ...state,
       providers: { ...state.providers, [providerId]: value },
-      // Entering a cloud key disables Ollama
-      useOllama: false,
     });
   }
 
@@ -31,8 +27,11 @@ export function StepProviders({ state, onChange, configuredEnvVars, ollamaHealth
     onChange({
       ...state,
       useOllama: enabled,
-      // Enabling Ollama clears any newly entered cloud keys
-      providers: enabled ? {} : state.providers,
+      // Auto-populate baseUrl with detected endpoint when enabling
+      ollama: {
+        ...state.ollama,
+        baseUrl: enabled && !state.ollama.baseUrl && ollamaEndpoint ? ollamaEndpoint : state.ollama.baseUrl,
+      },
     });
   }
 
@@ -51,7 +50,7 @@ export function StepProviders({ state, onChange, configuredEnvVars, ollamaHealth
         <p className="text-xs text-gray-400 mb-3">
           {cloudDisabled
             ? '已启用本地 Ollama，如需使用云端服务商请先关闭 Ollama 开关。'
-            : '输入 API Key 后保存，OpenClaw 将自动重启以生效。'}
+            : '输入 API Key 后保存，点击重启使配置生效。'}
         </p>
         <div className="space-y-2">
           {PROVIDERS.map((p) => {
@@ -106,12 +105,11 @@ export function StepProviders({ state, onChange, configuredEnvVars, ollamaHealth
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-gray-700">本地模型 (Ollama)</h3>
           {ollamaHealthy && (
-            <label className={`relative inline-flex items-center ${ollamaDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+            <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
                 checked={state.useOllama}
-                onChange={(e) => !ollamaDisabled && toggleOllama(e.target.checked)}
-                disabled={ollamaDisabled}
+                onChange={(e) => toggleOllama(e.target.checked)}
                 className="sr-only peer"
               />
               <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600" />
@@ -158,9 +156,7 @@ export function StepProviders({ state, onChange, configuredEnvVars, ollamaHealth
           </div>
         ) : (
           <p className="text-xs text-gray-400">
-            {ollamaDisabled
-              ? '已配置云端 API Key，如需使用本地模型请先清除上方的 API Key。'
-              : 'Ollama 已运行，开启上方开关即可在下一步中下载和使用本地模型。'}
+            Ollama 已运行，开启上方开关即可使用本地模型。
           </p>
         )}
       </div>

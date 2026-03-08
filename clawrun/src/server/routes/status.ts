@@ -29,9 +29,13 @@ router.get('/', async (req, res) => {
     getReplicaInfo(username),
   ]);
 
-  // Sync OpenClaw token from K8s deployment (verifies periodically)
+  // Sync OpenClaw token from K8s deployment (verifies periodically).
+  // Must run even when health check fails — endpoint may be empty after config reset,
+  // and autoConfigureToken will construct the default endpoint from namespace.
   let conn = getConnection();
-  if (openclawInfo.state === 'running' && openclawHealthy) {
+  const openclawReady = openclawInfo.state === 'running' ||
+    (openclawReplicas && openclawReplicas.desired > 0 && openclawReplicas.ready > 0);
+  if (openclawReady) {
     await autoConfigureToken(username);
     conn = getConnection();
   }

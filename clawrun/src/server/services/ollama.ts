@@ -85,6 +85,12 @@ function checkDeployReady(namespace: string, deployment: string): Promise<boolea
   });
 }
 
+// Canonical service endpoint for a given variant
+function canonicalEndpoint(v: OllamaVariant, user: string): string {
+  if (v === 'cpu') return `http://ollamarun-svc.ollamarun-${user}:11434`;
+  return `http://ollama-svc.ollama-${user}:11434`;
+}
+
 export async function checkStatus(): Promise<boolean> {
   const user = getUsername();
 
@@ -92,21 +98,30 @@ export async function checkStatus(): Promise<boolean> {
   if (variant) {
     const ns = variant === 'cpu' ? `ollamarun-${user}` : `ollama-${user}`;
     const deploy = variant === 'cpu' ? 'ollamarun' : 'ollama';
-    return checkDeployReady(ns, deploy);
+    const ready = await checkDeployReady(ns, deploy);
+    if (ready) {
+      // Ensure endpoint is always up-to-date (fixes stale values from old app names)
+      const expected = canonicalEndpoint(variant, user);
+      if (endpoint !== expected) {
+        endpoint = expected;
+        persist();
+        console.log(`[ollama] endpoint corrected to: ${endpoint}`);
+      }
+    }
+    return ready;
   }
 
   // Auto-detect: try both variants
-  const candidates: { v: OllamaVariant; ns: string; deploy: string; svc: string; port: number }[] = [
-    { v: 'cpu', ns: `ollamarun-${user}`, deploy: 'ollamarun', svc: 'ollamarun-svc', port: 11434 },
-    { v: 'gpu', ns: `ollama-${user}`, deploy: 'ollama', svc: 'ollama-svc', port: 11434 },
+  const candidates: { v: OllamaVariant; ns: string; deploy: string }[] = [
+    { v: 'cpu', ns: `ollamarun-${user}`, deploy: 'ollamarun' },
+    { v: 'gpu', ns: `ollama-${user}`, deploy: 'ollama' },
   ];
 
   for (const c of candidates) {
     const ready = await checkDeployReady(c.ns, c.deploy);
     if (ready) {
-      // Auto-configure variant and endpoint
       variant = c.v;
-      endpoint = `http://${c.svc}.${c.ns}:${c.port}`;
+      endpoint = canonicalEndpoint(c.v, user);
       persist();
       console.log(`[ollama] auto-detected: variant=${c.v}, endpoint=${endpoint}`);
       return true;
