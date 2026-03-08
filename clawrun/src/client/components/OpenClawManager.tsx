@@ -145,7 +145,12 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
       const envPatch: Record<string, string> = {};
       for (const p of PROVIDERS) {
         const key = state.providers[p.id]?.trim();
-        if (key) envPatch[p.envVar] = key;
+        if (state.useOllama) {
+          // When Ollama is enabled, clear all cloud API keys to avoid conflicts
+          envPatch[p.envVar] = key || '';
+        } else if (key) {
+          envPatch[p.envVar] = key;
+        }
       }
       if (state.useOllama) {
         envPatch['OLLAMA_API_KEY'] = state.ollama.apiKey || 'ollama';
