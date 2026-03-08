@@ -27,6 +27,8 @@ export function StepProviders({ state, onChange, configuredEnvVars, ollamaHealth
     onChange({
       ...state,
       useOllama: enabled,
+      // Clear cloud default model when switching to Ollama (incompatible model names)
+      defaultModel: enabled ? '' : state.defaultModel,
       // Auto-populate baseUrl with detected endpoint when enabling
       ollama: {
         ...state.ollama,

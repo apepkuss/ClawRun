@@ -111,15 +111,23 @@ router.post('/start', async (_req, res) => {
   }
 });
 
-// POST /api/openclaw/restart — restart OpenClaw deployment
+// POST /api/openclaw/restart — apply pending env (if any) and restart OpenClaw deployment
 router.post('/restart', async (_req, res) => {
   const username = getOlaresUsername();
-  const ok = await openclaw.restartDeploy(username);
+  const ok = await openclaw.applyPendingAndRestart(username);
   if (ok) {
     res.json({ ok: true });
   } else {
     res.status(500).json({ error: 'Failed to restart OpenClaw deployment' });
   }
+});
+
+// POST /api/openclaw/pending-env   body: { envs, patchBypass }
+// Store pending env vars on the server; applied on next restart.
+router.post('/pending-env', (req, res) => {
+  const { envs, patchBypass } = req.body as { envs: Record<string, string>; patchBypass: boolean };
+  openclaw.setPendingEnv({ envs: envs ?? {}, patchBypass: !!patchBypass });
+  res.json({ ok: true });
 });
 
 // POST /api/openclaw/wizard-complete

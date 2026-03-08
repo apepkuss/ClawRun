@@ -42,7 +42,7 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [pendingEnv, setPendingEnv] = useState<{ envs: Record<string, string>; patchBypass: boolean } | null>(null);
+  // No pendingEnv state — env patches are applied directly during save
 
   const containerState = actionBusy
     ? (actionBusy as ContainerState)
@@ -91,25 +91,6 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
     setError('');
     setSuccess('');
     try {
-      // On restart, apply any pending env patch first (this triggers pod restart by itself)
-      if (action === 'restart' && pendingEnv) {
-        if (pendingEnv.patchBypass) {
-          await fetch('/api/openclaw/patch-bypass', { method: 'POST' });
-        }
-        if (Object.keys(pendingEnv.envs).length > 0) {
-          const res = await fetch('/api/openclaw/env', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ envs: pendingEnv.envs }),
-          });
-          if (!res.ok) throw new Error(`API Key 配置失败: ${res.status}`);
-          // env patch already triggers pod restart, no need to call restart API
-          setPendingEnv(null);
-          refresh();
-          return;
-        }
-        setPendingEnv(null);
-      }
       const res = await fetch(`/api/openclaw/${action}`, { method: 'POST' });
       if (!res.ok) throw new Error(`${action} failed: ${res.status}`);
       refresh();
@@ -163,7 +144,7 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
         if (!res.ok) throw new Error(`配置写入失败: ${res.status}`);
       }
 
-      // 2. Collect env vars (API keys) — defer actual patch to restart
+      // 2. Store pending env vars on server (applied on next restart)
       const envPatch: Record<string, string> = {};
       for (const p of PROVIDERS) {
         const key = state.providers[p.id]?.trim();
@@ -179,18 +160,19 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
       }
 
       const needsEnvPatch = Object.keys(envPatch).length > 0;
-      const needsBypass = state.useOllama;
 
-      if (needsEnvPatch || needsBypass) {
-        setPendingEnv({ envs: envPatch, patchBypass: needsBypass });
+      if (needsEnvPatch || state.useOllama) {
+        await fetch('/api/openclaw/pending-env', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ envs: envPatch, patchBypass: state.useOllama }),
+        });
       }
 
       // Mark wizard complete (in case first time)
       await fetch('/api/openclaw/wizard-complete', { method: 'POST' });
 
-      setSuccess(needsEnvPatch
-        ? '配置已保存。点击"重启"以应用 API Key 变更。'
-        : '配置已保存。点击"重启"使配置生效。');
+      setSuccess('配置已保存。点击"重启"使配置生效。');
     } catch (err) {
       setError(String(err));
     } finally {

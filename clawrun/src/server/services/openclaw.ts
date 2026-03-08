@@ -10,6 +10,7 @@ interface Config {
   openclaw?: { endpoint: string; token: string; uiUrl?: string };
   ollama?: { endpoint: string };
   wizardCompleted?: boolean;
+  pendingEnv?: { envs: Record<string, string>; patchBypass: boolean } | null;
 }
 
 function loadConfig(): Config {
@@ -143,6 +144,36 @@ export function isWizardCompleted(): boolean {
 
 export function markWizardCompleted() {
   saveConfig({ wizardCompleted: true });
+}
+
+// Store pending env vars to be applied on next restart.
+export function setPendingEnv(pending: { envs: Record<string, string>; patchBypass: boolean } | null) {
+  saveConfig({ pendingEnv: pending });
+}
+
+export function getPendingEnv(): { envs: Record<string, string>; patchBypass: boolean } | null {
+  return loadConfig().pendingEnv ?? null;
+}
+
+// Apply pending env vars (if any) and restart.
+// Returns true if restart was initiated.
+export async function applyPendingAndRestart(username: string): Promise<boolean> {
+  const pending = getPendingEnv();
+  if (pending) {
+    if (pending.patchBypass) {
+      await patchOutboundBypass(username);
+    }
+    if (Object.keys(pending.envs).length > 0) {
+      const ok = await setApiKeys(username, pending.envs);
+      if (!ok) return false;
+      // env patch already triggers pod restart, clear pending
+      setPendingEnv(null);
+      return true;
+    }
+    setPendingEnv(null);
+  }
+  // No env patch (or empty envs): explicit restart
+  return restartDeploy(username);
 }
 
 // Ensure OpenClaw namespace has the label required by Ollama's NetworkPolicy.
