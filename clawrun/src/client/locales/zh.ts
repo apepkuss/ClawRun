@@ -68,7 +68,7 @@ const zh: Record<string, string> = {
   'providers.configured': '已配置',
   'providers.configuredPlaceholder': '已配置（留空保持不变）',
   'providers.enterApiKey': '输入 {{name}} API Key',
-  'providers.localModel': '本地模型 (Ollama)',
+  'providers.localModel': 'Ollama 本地服务',
   'providers.enabled': '已启用',
   'providers.disabled': '未启用',
   'providers.ollamaStatus': 'Ollama 状态：{{status}}',
@@ -148,7 +148,7 @@ const zh: Record<string, string> = {
   'mnemonic.burned': '助记词已安全删除，请妥善保管你的备份。',
 
   // 模型服务 — ClawRouter
-  'providers.clawrouter': '去中心化 (ClawRouter)',
+  'providers.clawrouter': 'ClawRouter 服务',
   'providers.clawrouterNotInstalled': '请先在上方插件区域启用 ClawRouter 插件，才能使用去中心化模型路由。',
   'providers.clawrouterHint': 'ClawRouter 已激活，模型请求将通过去中心化网络路由。',
   'providers.clawrouterEnableHint': '开启开关即可使用 ClawRouter 作为模型服务。',

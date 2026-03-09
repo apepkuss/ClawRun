@@ -68,7 +68,7 @@ const en: Record<string, string> = {
   'providers.configured': 'Configured',
   'providers.configuredPlaceholder': 'Configured (leave empty to keep)',
   'providers.enterApiKey': 'Enter {{name}} API Key',
-  'providers.localModel': 'Local Model (Ollama)',
+  'providers.localModel': 'Ollama Local Service',
   'providers.enabled': 'Enabled',
   'providers.disabled': 'Disabled',
   'providers.ollamaStatus': 'Ollama Status: {{status}}',
@@ -148,7 +148,7 @@ const en: Record<string, string> = {
   'mnemonic.burned': 'Recovery phrase has been securely deleted. Keep your backup safe.',
 
   // Providers — ClawRouter
-  'providers.clawrouter': 'Decentralized (ClawRouter)',
+  'providers.clawrouter': 'ClawRouter Service',
   'providers.clawrouterNotInstalled': 'Enable ClawRouter plugin in the Plugins section above to use decentralized model routing.',
   'providers.clawrouterHint': 'ClawRouter is active. Models will be routed through the decentralized network.',
   'providers.clawrouterEnableHint': 'Enable the toggle to use ClawRouter as your model service.',

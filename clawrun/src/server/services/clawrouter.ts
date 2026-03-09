@@ -56,13 +56,32 @@ export async function getPluginStatus(username: string): Promise<{ installed: bo
 
 export async function installPlugin(username: string): Promise<boolean> {
   console.log(`[clawrouter] installing plugin (ns=openclaw-${username})`);
-  const result = await kubectlExec(username, `openclaw plugins install ${PLUGIN_PACKAGE}`, 60000);
-  if (!result.ok) {
-    console.error('[clawrouter] install failed:', result.stderr);
+
+  // Check if already installed (directory exists)
+  const status = await getPluginStatus(username);
+  if (status.installed) {
+    console.log('[clawrouter] plugin directory already exists, ensuring dependencies');
   } else {
-    console.log('[clawrouter] install ok');
+    const result = await kubectlExec(username, `openclaw plugins install ${PLUGIN_PACKAGE}`, 120000);
+    if (!result.ok) {
+      console.error('[clawrouter] install failed:', result.stderr);
+      return false;
+    }
+    console.log('[clawrouter] plugin installed');
   }
-  return result.ok;
+
+  // Ensure npm dependencies are installed (openclaw plugins install doesn't always include them)
+  const npmResult = await kubectlExecSh(
+    username,
+    `cd /home/node/.openclaw/extensions/clawrouter && npm install --production 2>&1 | tail -5`,
+    120000,
+  );
+  if (!npmResult.ok) {
+    console.error('[clawrouter] npm install failed:', npmResult.stderr);
+    return false;
+  }
+  console.log('[clawrouter] dependencies ok');
+  return true;
 }
 
 export async function uninstallPlugin(username: string): Promise<boolean> {
