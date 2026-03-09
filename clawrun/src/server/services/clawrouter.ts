@@ -119,9 +119,12 @@ export async function getWalletInfo(username: string): Promise<WalletInfo | null
   if (!result.ok) return null;
   try {
     const data = JSON.parse(result.stdout.trim());
-    if (!data.wallet?.address) return null;
+    // Health response: { status, wallet: "0x...", paymentChain: "base", solana: "..." }
+    const address = typeof data.wallet === 'string' ? data.wallet : data.wallet?.address;
+    if (!address) return null;
+    // Always read chain from file (our source of truth) rather than health endpoint cache
     const chain = await getChain(username);
-    return { address: data.wallet.address, chain };
+    return { address, chain };
   } catch {
     return null;
   }
@@ -142,8 +145,10 @@ export async function getWalletBalance(username: string): Promise<{ balance: str
   if (!result.ok) return null;
   try {
     const data = JSON.parse(result.stdout.trim());
-    if (data.wallet?.balance !== undefined) {
-      return { balance: String(data.wallet.balance), currency: 'USDC' };
+    // Health response may have balance at top level or nested under wallet
+    const balance = data.balance ?? (typeof data.wallet === 'object' ? data.wallet?.balance : undefined);
+    if (balance !== undefined) {
+      return { balance: String(balance), currency: 'USDC' };
     }
     return null;
   } catch {

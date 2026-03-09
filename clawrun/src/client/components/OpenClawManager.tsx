@@ -112,7 +112,11 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
       const configEntries: { key: string; value: unknown }[] = [];
 
       if (state.defaultModel.trim()) {
-        configEntries.push({ key: 'agents.defaults.model', value: state.defaultModel.trim() });
+        // ClawRouter requires model as object { primary: "..." }, not a plain string
+        const modelValue = state.useClawRouter
+          ? { primary: state.defaultModel.trim() }
+          : state.defaultModel.trim();
+        configEntries.push({ key: 'agents.defaults.model', value: modelValue });
       }
 
       if (state.useOllama) {
