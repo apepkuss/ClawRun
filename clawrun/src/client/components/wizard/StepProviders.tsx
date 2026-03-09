@@ -9,13 +9,14 @@ interface Props {
   configuredEnvVars: string[];
   ollamaHealthy: boolean;
   ollamaEndpoint: string | null;
+  clawRouterInstalled: boolean;
 }
 
-export function StepProviders({ state, onChange, configuredEnvVars, ollamaHealthy, ollamaEndpoint }: Props) {
+export function StepProviders({ state, onChange, configuredEnvVars, ollamaHealthy, ollamaEndpoint, clawRouterInstalled }: Props) {
   const { t } = useLocale();
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const cloudDisabled = state.useOllama;
+  const cloudDisabled = state.useOllama || state.useClawRouter;
 
   function setKey(providerId: string, value: string) {
     onChange({
@@ -28,11 +29,21 @@ export function StepProviders({ state, onChange, configuredEnvVars, ollamaHealth
     onChange({
       ...state,
       useOllama: enabled,
+      useClawRouter: enabled ? false : state.useClawRouter,
       defaultModel: enabled ? '' : state.defaultModel,
       ollama: {
         ...state.ollama,
         baseUrl: enabled && !state.ollama.baseUrl && ollamaEndpoint ? ollamaEndpoint : state.ollama.baseUrl,
       },
+    });
+  }
+
+  function toggleClawRouter(enabled: boolean) {
+    onChange({
+      ...state,
+      useClawRouter: enabled,
+      useOllama: enabled ? false : state.useOllama,
+      defaultModel: enabled ? '' : state.defaultModel,
     });
   }
 
@@ -160,6 +171,36 @@ export function StepProviders({ state, onChange, configuredEnvVars, ollamaHealth
             {t('providers.ollamaHint')}
           </p>
         )}
+      </div>
+
+      {/* ── Divider ── */}
+      <div className="border-t" />
+
+      {/* ── ClawRouter (Decentralized) ── */}
+      <div className={!clawRouterInstalled ? 'opacity-50' : ''}>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold text-gray-700">{t('providers.clawrouter')}</h3>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={state.useClawRouter}
+              onChange={(e) => toggleClawRouter(e.target.checked)}
+              disabled={!clawRouterInstalled}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600 peer-disabled:opacity-40" />
+            <span className="ml-2 text-xs text-gray-500">
+              {!clawRouterInstalled ? t('providers.disabled') : state.useClawRouter ? t('providers.enabled') : t('providers.disabled')}
+            </span>
+          </label>
+        </div>
+        <p className="text-xs text-gray-400">
+          {!clawRouterInstalled
+            ? t('providers.clawrouterNotInstalled')
+            : state.useClawRouter
+              ? t('providers.clawrouterHint')
+              : t('providers.clawrouterEnableHint')}
+        </p>
       </div>
     </div>
   );

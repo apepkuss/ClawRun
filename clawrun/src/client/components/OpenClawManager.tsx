@@ -3,6 +3,7 @@ import { useLocale } from '../locales';
 import { StepProviders } from './wizard/StepProviders';
 import { StepDefaultModel } from './wizard/StepDefaultModel';
 import { StepChannels } from './wizard/StepChannels';
+import { ClawRouterCard } from './ClawRouterCard';
 import { PROVIDERS, CHANNELS } from './wizard/constants';
 import { initialWizardState } from './wizard/types';
 import type { WizardState } from './wizard/types';
@@ -147,7 +148,7 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
       const envPatch: Record<string, string> = {};
       for (const p of PROVIDERS) {
         const key = state.providers[p.id]?.trim();
-        if (state.useOllama) {
+        if (state.useOllama || state.useClawRouter) {
           envPatch[p.envVar] = key || '';
         } else if (key) {
           envPatch[p.envVar] = key;
@@ -158,12 +159,13 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
       }
 
       const needsEnvPatch = Object.keys(envPatch).length > 0;
+      const needsBypass = state.useOllama;
 
-      if (needsEnvPatch || state.useOllama) {
+      if (needsEnvPatch || state.useOllama || state.useClawRouter) {
         await fetch('/api/openclaw/pending-env', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ envs: envPatch, patchBypass: state.useOllama }),
+          body: JSON.stringify({ envs: envPatch, patchBypass: needsBypass }),
         });
       }
 
@@ -218,98 +220,117 @@ export function OpenClawManager({ status, onBack, refresh }: Props) {
         <h2 className="text-lg font-bold text-gray-800">{t('manager.title')}</h2>
       </div>
 
-      {/* Container Controls */}
-      <div className="bg-white border rounded-xl p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <span className="font-semibold text-base">{t('manager.containerState')}</span>
-            <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1 ${stateColorMap[containerState]}`}>
-              {isBusy && <Spinner />}
-              {t(stateKeyMap[containerState])}
-            </span>
+      {/* Two-column layout: left (status/plugins) + right (config) */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left column — sticky on large screens */}
+        <div className="w-full lg:w-2/5 space-y-4 lg:self-start lg:sticky lg:top-4">
+          {/* Container Controls */}
+          <div className="bg-white border rounded-xl p-5 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="font-semibold text-base">{t('manager.containerState')}</span>
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1 ${stateColorMap[containerState]}`}>
+                {isBusy && <Spinner />}
+                {t(stateKeyMap[containerState])}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleAction('start')}
+                disabled={isRunning || isBusy}
+                className="flex-1 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {t('manager.start')}
+              </button>
+              <button
+                onClick={() => handleAction('stop')}
+                disabled={isStopped || isBusy}
+                className="flex-1 px-4 py-2 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {t('manager.stop')}
+              </button>
+              <button
+                onClick={() => handleAction('restart')}
+                disabled={!isRunning || isBusy}
+                className="flex-1 px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {t('manager.restart')}
+              </button>
+            </div>
+            {isRunning && (
+              <>
+                <div className="border-t my-3" />
+                <button
+                  onClick={openUI}
+                  className="w-full px-4 py-1.5 text-sm border border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  {t('manager.openUI')}
+                </button>
+              </>
+            )}
+            {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
           </div>
-          {isRunning && (
-            <button
-              onClick={openUI}
-              className="px-4 py-1.5 text-sm border border-blue-500 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
-            >
-              {t('manager.openUI')}
-            </button>
+
+          {/* Plugins Card */}
+          <div className="bg-white border rounded-xl p-5 shadow-sm">
+            <h3 className="font-semibold text-base mb-4">{t('manager.plugins')}</h3>
+            <ClawRouterCard
+              installed={status.clawrouter.installed}
+              openclawRunning={isRunning}
+              onRefresh={refresh}
+            />
+            {/* Future plugins: add <div className="border-t my-4" /> then next plugin card */}
+          </div>
+        </div>
+
+        {/* Right column — config */}
+        <div className={`w-full lg:w-3/5 space-y-4 ${configDisabled ? 'opacity-50 pointer-events-none' : ''}`}>
+          {configDisabled && (
+            <p className="text-sm text-gray-400">
+              {t('manager.configUnavailable')}
+            </p>
           )}
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleAction('start')}
-            disabled={isRunning || isBusy}
-            className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {t('manager.start')}
-          </button>
-          <button
-            onClick={() => handleAction('stop')}
-            disabled={isStopped || isBusy}
-            className="px-4 py-2 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {t('manager.stop')}
-          </button>
-          <button
-            onClick={() => handleAction('restart')}
-            disabled={!isRunning || isBusy}
-            className="px-4 py-2 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {t('manager.restart')}
-          </button>
-        </div>
-        {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
-      </div>
 
-      {/* Config Sections */}
-      <div className={configDisabled ? 'opacity-50 pointer-events-none' : ''}>
-        {configDisabled && (
-          <p className="text-sm text-gray-400 mb-4">
-            {t('manager.configUnavailable')}
-          </p>
-        )}
+          {/* Section 1: Providers */}
+          <div className="bg-white border rounded-xl p-5 shadow-sm">
+            <h3 className="text-sm font-bold text-gray-700 mb-3">{t('manager.modelServices')}</h3>
+            <StepProviders
+              state={state}
+              onChange={setState}
+              configuredEnvVars={configuredEnvVars}
+              ollamaHealthy={status.ollama.healthy}
+              ollamaEndpoint={status.ollama.endpoint}
+              clawRouterInstalled={status.clawrouter.installed}
+            />
+          </div>
 
-        {/* Section 1: Providers */}
-        <div className="bg-white border rounded-xl p-5 shadow-sm mb-4">
-          <h3 className="text-sm font-bold text-gray-700 mb-3">{t('manager.modelServices')}</h3>
-          <StepProviders
-            state={state}
-            onChange={setState}
-            configuredEnvVars={configuredEnvVars}
-            ollamaHealthy={status.ollama.healthy}
-            ollamaEndpoint={status.ollama.endpoint}
-          />
-        </div>
+          {/* Section 2: Default Model */}
+          <div className="bg-white border rounded-xl p-5 shadow-sm">
+            <h3 className="text-sm font-bold text-gray-700 mb-3">{t('manager.defaultModel')}</h3>
+            <StepDefaultModel
+              state={state}
+              onChange={setState}
+              ollamaHealthy={status.ollama.healthy}
+            />
+          </div>
 
-        {/* Section 2: Default Model */}
-        <div className="bg-white border rounded-xl p-5 shadow-sm mb-4">
-          <h3 className="text-sm font-bold text-gray-700 mb-3">{t('manager.defaultModel')}</h3>
-          <StepDefaultModel
-            state={state}
-            onChange={setState}
-            ollamaHealthy={status.ollama.healthy}
-          />
-        </div>
+          {/* Section 3: Channels */}
+          <div className="bg-white border rounded-xl p-5 shadow-sm">
+            <h3 className="text-sm font-bold text-gray-700 mb-3">{t('manager.messageChannels')}</h3>
+            <StepChannels state={state} onChange={setState} />
+          </div>
 
-        {/* Section 3: Channels */}
-        <div className="bg-white border rounded-xl p-5 shadow-sm mb-4">
-          <h3 className="text-sm font-bold text-gray-700 mb-3">{t('manager.messageChannels')}</h3>
-          <StepChannels state={state} onChange={setState} />
-        </div>
-
-        {/* Save Button */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saving || configDisabled}
-            className="px-6 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {saving ? t('common.saving') : t('manager.saveConfig')}
-          </button>
-          {success && <p className="text-sm text-green-600">{success}</p>}
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {/* Save Button */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSave}
+              disabled={saving || configDisabled}
+              className="px-6 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {saving ? t('common.saving') : t('manager.saveConfig')}
+            </button>
+            {success && <p className="text-sm text-green-600">{success}</p>}
+            {error && <p className="text-sm text-red-500">{error}</p>}
+          </div>
         </div>
       </div>
     </div>

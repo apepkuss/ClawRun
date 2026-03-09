@@ -12,6 +12,7 @@ interface Config {
   wizardCompleted?: boolean;
   pendingEnv?: { envs: Record<string, string>; patchBypass: boolean } | null;
   pendingConfig?: { entries: { key: string; value: string }[] } | null;
+  pendingPlugin?: { action: 'install' | 'uninstall' } | null;
 }
 
 function loadConfig(): Config {
@@ -305,6 +306,51 @@ export async function restartDeploy(username: string): Promise<boolean> {
       },
     );
   });
+}
+
+// Store pending plugin action to be applied after restart.
+export function setPendingPlugin(pending: { action: 'install' | 'uninstall' } | null) {
+  saveConfig({ pendingPlugin: pending });
+}
+
+export function getPendingPlugin(): { action: 'install' | 'uninstall' } | null {
+  return loadConfig().pendingPlugin ?? null;
+}
+
+// Apply pending plugin action if the pod is running.
+// Called from status polling — non-blocking, fire-and-forget.
+let applyingPendingPlugin = false;
+export async function applyPendingPluginIfReady(username: string): Promise<boolean> {
+  if (applyingPendingPlugin) return false;
+  const pending = getPendingPlugin();
+  if (!pending) return false;
+
+  const healthy = await checkHealth();
+  if (!healthy) return false;
+
+  applyingPendingPlugin = true;
+  console.log(`[openclaw] applying pending plugin action: ${pending.action}`);
+  try {
+    const { installPlugin, uninstallPlugin } = await import('./clawrouter');
+    let ok = false;
+    if (pending.action === 'install') {
+      ok = await installPlugin(username);
+    } else {
+      ok = await uninstallPlugin(username);
+    }
+    if (ok) {
+      setPendingPlugin(null);
+      console.log(`[openclaw] pending plugin ${pending.action} applied, restarting pod`);
+      // Restart so the plugin loads/unloads
+      await restartDeploy(username);
+      return true;
+    } else {
+      console.error(`[openclaw] pending plugin ${pending.action} failed`);
+      return false;
+    }
+  } finally {
+    applyingPendingPlugin = false;
+  }
 }
 
 export function clearConfig() {

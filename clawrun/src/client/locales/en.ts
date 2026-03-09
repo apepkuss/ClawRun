@@ -101,6 +101,61 @@ const en: Record<string, string> = {
   'provider.minimax': 'MiniMax',
   'provider.volcano': 'Volcano Engine (Doubao)',
 
+  // OpenClaw Manager — Plugins
+  'manager.plugins': 'Plugins',
+
+  // Plugin: ClawRouter
+  'plugin.clawrouter': 'ClawRouter',
+  'plugin.clawrouterDesc': 'Decentralized AI model router — smart routing across 40+ LLMs with USDC micropayments.',
+  'plugin.installed': 'Installed',
+  'plugin.notInstalled': 'Not Installed',
+  'plugin.pendingInstall': 'Pending Install (restart required)',
+  'plugin.pendingUninstall': 'Pending Uninstall (restart required)',
+  'plugin.pendingRestart': 'Action stored. Click "Restart" to apply.',
+  'plugin.actionFailed': 'Plugin action failed.',
+
+  // Wallet
+  'wallet.title': 'Wallet',
+  'wallet.address': 'Address',
+  'wallet.balance': 'Balance',
+  'wallet.chain': 'Chain',
+  'wallet.chainBase': 'Base (EVM)',
+  'wallet.chainSolana': 'Solana',
+  'wallet.copy': 'Copy address',
+  'wallet.show': 'Show balance',
+  'wallet.hide': 'Hide balance',
+  'wallet.unavailable': 'Unavailable',
+  'wallet.sourceDesc': 'Choose how to set up your wallet:',
+  'wallet.autoGenerate': 'Auto-generate Wallet',
+  'wallet.autoGenerateHint': 'Wallet will be generated on next restart. Click "Restart" to proceed.',
+  'wallet.importKey': 'Import Private Key',
+  'wallet.privateKeyLabel': 'EVM Private Key (0x...)',
+  'wallet.import': 'Import',
+  'wallet.importSuccess': 'Private key imported successfully.',
+  'wallet.importFailed': 'Failed to import private key.',
+  'wallet.invalidKey': 'Invalid format. Expected 0x + 64 hex characters.',
+
+  // Mnemonic (show-once-then-burn)
+  'mnemonic.backup': 'Backup Recovery Phrase',
+  'mnemonic.title': 'Recovery Phrase',
+  'mnemonic.warning': 'Write down these words in order. This is the ONLY time they will be shown. They cannot be recovered after this step.',
+  'mnemonic.continue': 'I have written them down',
+  'mnemonic.verifyTitle': 'Verify Recovery Phrase',
+  'mnemonic.verifyDesc': 'Enter the words at the following positions to confirm your backup.',
+  'mnemonic.wordN': 'Word #{{n}}',
+  'mnemonic.verify': 'Verify & Confirm',
+  'mnemonic.verifyFailed': 'Verification failed. Please check your words and try again.',
+  'mnemonic.burned': 'Recovery phrase has been securely deleted. Keep your backup safe.',
+
+  // Providers — ClawRouter
+  'providers.clawrouter': 'Decentralized (ClawRouter)',
+  'providers.clawrouterNotInstalled': 'Enable ClawRouter plugin in the Plugins section above to use decentralized model routing.',
+  'providers.clawrouterHint': 'ClawRouter is active. Models will be routed through the decentralized network.',
+  'providers.clawrouterEnableHint': 'Enable the toggle to use ClawRouter as your model service.',
+
+  // Default Model — ClawRouter
+  'model.clawrouterHint': 'Select a routing profile. ClawRouter will automatically pick the best model for each request.',
+
   // Channel names
   'channel.telegram': 'Telegram',
   'channel.feishu': 'Feishu',

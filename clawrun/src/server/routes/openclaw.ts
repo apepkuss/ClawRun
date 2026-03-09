@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as openclaw from '../services/openclaw';
+import * as clawrouter from '../services/clawrouter';
 import { getOlaresUsername } from '../services/app-manager';
 
 const router = Router();
@@ -146,6 +147,127 @@ router.post('/pending-config', (req, res) => {
 router.post('/wizard-complete', (_req, res) => {
   openclaw.markWizardCompleted();
   res.json({ ok: true });
+});
+
+// ── ClawRouter Plugin ──
+
+// GET /api/openclaw/plugins/clawrouter/status
+router.get('/plugins/clawrouter/status', async (_req, res) => {
+  const username = getOlaresUsername();
+  const [pluginStatus, mnemonicBurned, hasWallet] = await Promise.all([
+    clawrouter.getPluginStatus(username),
+    clawrouter.isMnemonicBurned(username),
+    clawrouter.walletExists(username),
+  ]);
+  const pending = openclaw.getPendingPlugin();
+  let walletInfo: clawrouter.WalletInfo | null = null;
+  if (pluginStatus.installed) {
+    walletInfo = await clawrouter.getWalletInfo(username);
+  }
+  res.json({
+    installed: pluginStatus.installed,
+    pendingAction: pending?.action ?? null,
+    walletAddress: walletInfo?.address ?? null,
+    chain: walletInfo?.chain ?? null,
+    mnemonicBurned,
+    walletExists: hasWallet,
+  });
+});
+
+// POST /api/openclaw/plugins/clawrouter/install
+router.post('/plugins/clawrouter/install', async (_req, res) => {
+  openclaw.setPendingPlugin({ action: 'install' });
+  res.json({ ok: true, pendingRestart: true });
+});
+
+// POST /api/openclaw/plugins/clawrouter/uninstall
+router.post('/plugins/clawrouter/uninstall', async (_req, res) => {
+  openclaw.setPendingPlugin({ action: 'uninstall' });
+  res.json({ ok: true, pendingRestart: true });
+});
+
+// GET /api/openclaw/plugins/clawrouter/wallet
+router.get('/plugins/clawrouter/wallet', async (_req, res) => {
+  const username = getOlaresUsername();
+  const info = await clawrouter.getWalletInfo(username);
+  if (info) {
+    res.json(info);
+  } else {
+    res.json({ address: null, chain: null });
+  }
+});
+
+// GET /api/openclaw/plugins/clawrouter/balance
+router.get('/plugins/clawrouter/balance', async (_req, res) => {
+  const username = getOlaresUsername();
+  const balance = await clawrouter.getWalletBalance(username);
+  if (balance) {
+    res.json(balance);
+  } else {
+    res.json({ balance: null, currency: 'USDC' });
+  }
+});
+
+// POST /api/openclaw/plugins/clawrouter/chain   body: { chain: 'base' | 'solana' }
+router.post('/plugins/clawrouter/chain', async (req, res) => {
+  const { chain } = req.body as { chain: string };
+  const username = getOlaresUsername();
+  const ok = await clawrouter.switchChain(username, chain);
+  if (ok) {
+    res.json({ ok: true });
+  } else {
+    res.status(400).json({ error: 'Invalid chain. Must be "base" or "solana".' });
+  }
+});
+
+// GET /api/openclaw/plugins/clawrouter/mnemonic
+router.get('/plugins/clawrouter/mnemonic', async (_req, res) => {
+  const username = getOlaresUsername();
+  const mnemonic = await clawrouter.getMnemonic(username);
+  if (mnemonic) {
+    res.json({ mnemonic });
+  } else {
+    res.json({ mnemonic: null });
+  }
+});
+
+// POST /api/openclaw/plugins/clawrouter/mnemonic/verify   body: { answers: [{position, word}] }
+router.post('/plugins/clawrouter/mnemonic/verify', async (req, res) => {
+  const { answers } = req.body as { answers: { position: number; word: string }[] };
+  const username = getOlaresUsername();
+  const mnemonic = await clawrouter.getMnemonic(username);
+  if (!mnemonic) {
+    res.status(400).json({ error: 'Mnemonic already burned or not available.' });
+    return;
+  }
+  const ok = await clawrouter.verifyAndBurnMnemonic(username, mnemonic, answers);
+  if (ok) {
+    res.json({ ok: true });
+  } else {
+    res.status(400).json({ error: 'Verification failed. Words do not match.' });
+  }
+});
+
+// POST /api/openclaw/plugins/clawrouter/import-key   body: { privateKey: '0x...' }
+router.post('/plugins/clawrouter/import-key', async (req, res) => {
+  const { privateKey } = req.body as { privateKey: string };
+  if (!privateKey) {
+    res.status(400).json({ error: 'privateKey is required' });
+    return;
+  }
+  const username = getOlaresUsername();
+  // Check if wallet already exists
+  const exists = await clawrouter.walletExists(username);
+  if (exists) {
+    // Allow import but warn — frontend should show confirmation dialog
+    console.warn('[clawrouter] overwriting existing wallet key');
+  }
+  const ok = await clawrouter.importPrivateKey(username, privateKey);
+  if (ok) {
+    res.json({ ok: true });
+  } else {
+    res.status(400).json({ error: 'Invalid private key format. Expected 0x + 64 hex characters.' });
+  }
 });
 
 export default router;

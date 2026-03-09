@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocale } from '../../locales';
-import { PROVIDERS, POPULAR_MODELS } from './constants';
+import { PROVIDERS, POPULAR_MODELS, CLAWROUTER_MODELS } from './constants';
 import type { WizardState } from './types';
 
 interface Props {
@@ -26,7 +26,40 @@ export function StepDefaultModel({ state, onChange, ollamaHealthy }: Props) {
     <div className="space-y-4">
       <p className="text-sm text-gray-500">{t('model.description')}</p>
 
-      {ollamaConfigured ? (
+      {state.useClawRouter ? (
+        <div className="space-y-3">
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+            <p className="text-sm text-purple-700">
+              {t('model.clawrouterHint')}
+            </p>
+          </div>
+          <div className="space-y-2">
+            {CLAWROUTER_MODELS.map((m) => (
+              <label
+                key={m.value}
+                className={`flex items-center gap-3 border rounded-lg px-4 py-3 cursor-pointer transition-colors ${
+                  state.defaultModel === m.value
+                    ? 'border-purple-500 bg-purple-50'
+                    : 'hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="defaultModel"
+                  value={m.value}
+                  checked={state.defaultModel === m.value}
+                  onChange={() => setModel(m.value)}
+                  className="text-purple-600"
+                />
+                <div>
+                  <span className="text-sm font-medium text-gray-700">{m.label}</span>
+                  <span className="text-xs text-gray-400 ml-2">{m.value}</span>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : ollamaConfigured ? (
         <div className="space-y-3">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-sm text-blue-700">

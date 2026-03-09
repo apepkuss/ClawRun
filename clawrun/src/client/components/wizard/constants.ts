@@ -59,6 +59,13 @@ export const POPULAR_MODELS: Record<string, ModelDef[]> = {
   ],
 };
 
+export const CLAWROUTER_MODELS: ModelDef[] = [
+  { label: 'Auto (Balanced)', value: 'blockrun/auto' },
+  { label: 'Eco (Cheapest)', value: 'blockrun/eco' },
+  { label: 'Premium (Best Quality)', value: 'blockrun/premium' },
+  { label: 'Free', value: 'blockrun/free' },
+];
+
 export const CHANNELS: ChannelDef[] = [
   {
     id: 'telegram',

@@ -101,6 +101,61 @@ const zh: Record<string, string> = {
   'provider.minimax': 'MiniMax',
   'provider.volcano': '火山引擎 (豆包)',
 
+  // OpenClaw 管理 — 插件
+  'manager.plugins': '插件',
+
+  // 插件: ClawRouter
+  'plugin.clawrouter': 'ClawRouter',
+  'plugin.clawrouterDesc': '去中心化 AI 模型路由器 — 智能路由 40+ 大模型，USDC 微支付。',
+  'plugin.installed': '已安装',
+  'plugin.notInstalled': '未安装',
+  'plugin.pendingInstall': '待安装（需重启）',
+  'plugin.pendingUninstall': '待卸载（需重启）',
+  'plugin.pendingRestart': '操作已存储，点击"重启"使其生效。',
+  'plugin.actionFailed': '插件操作失败。',
+
+  // 钱包
+  'wallet.title': '钱包',
+  'wallet.address': '地址',
+  'wallet.balance': '余额',
+  'wallet.chain': '链',
+  'wallet.chainBase': 'Base (EVM)',
+  'wallet.chainSolana': 'Solana',
+  'wallet.copy': '复制地址',
+  'wallet.show': '显示余额',
+  'wallet.hide': '隐藏余额',
+  'wallet.unavailable': '不可用',
+  'wallet.sourceDesc': '选择钱包设置方式：',
+  'wallet.autoGenerate': '自动生成钱包',
+  'wallet.autoGenerateHint': '钱包将在下次重启时生成，请点击"重启"继续。',
+  'wallet.importKey': '导入私钥',
+  'wallet.privateKeyLabel': 'EVM 私钥 (0x...)',
+  'wallet.import': '导入',
+  'wallet.importSuccess': '私钥导入成功。',
+  'wallet.importFailed': '导入私钥失败。',
+  'wallet.invalidKey': '格式无效，需要 0x + 64 位十六进制字符。',
+
+  // 助记词（阅后即焚）
+  'mnemonic.backup': '备份助记词',
+  'mnemonic.title': '助记词',
+  'mnemonic.warning': '请按顺序抄写以下单词。这是唯一一次展示，此后将无法恢复。',
+  'mnemonic.continue': '我已抄写完毕',
+  'mnemonic.verifyTitle': '验证助记词',
+  'mnemonic.verifyDesc': '请输入以下位置对应的单词，确认你已正确备份。',
+  'mnemonic.wordN': '第 {{n}} 个单词',
+  'mnemonic.verify': '验证并确认',
+  'mnemonic.verifyFailed': '验证失败，请检查输入的单词后重试。',
+  'mnemonic.burned': '助记词已安全删除，请妥善保管你的备份。',
+
+  // 模型服务 — ClawRouter
+  'providers.clawrouter': '去中心化 (ClawRouter)',
+  'providers.clawrouterNotInstalled': '请先在上方插件区域启用 ClawRouter 插件，才能使用去中心化模型路由。',
+  'providers.clawrouterHint': 'ClawRouter 已激活，模型请求将通过去中心化网络路由。',
+  'providers.clawrouterEnableHint': '开启开关即可使用 ClawRouter 作为模型服务。',
+
+  // 默认模型 — ClawRouter
+  'model.clawrouterHint': '选择路由配置，ClawRouter 会自动为每个请求选择最优模型。',
+
   // Channel names
   'channel.telegram': 'Telegram',
   'channel.feishu': '飞书 (Feishu)',
