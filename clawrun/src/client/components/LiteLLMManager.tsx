@@ -136,7 +136,14 @@ export function LiteLLMManager({ status, onBack, refresh }: Props) {
 
     fetch('/api/litellm/env')
       .then((res) => res.json())
-      .then((data) => setConfiguredKeys(data.configured ?? []))
+      .then((data) => {
+        const keys: string[] = data.configured ?? [];
+        setConfiguredKeys(keys);
+        // Pre-fill configured keys with masked dots so user can see and clear them
+        const masked: Record<string, string> = {};
+        for (const k of keys) masked[k] = '••••••••';
+        setApiKeys(masked);
+      })
       .catch(() => {});
   }, [isRunning]);
 
@@ -175,10 +182,19 @@ export function LiteLLMManager({ status, onBack, refresh }: Props) {
 
     try {
       // 1. Update API keys (patch Deployment env)
+      const MASK = '••••••••';
       const envPatch: Record<string, string> = {};
       for (const def of API_KEY_DEFS) {
-        const val = apiKeys[def.envVar]?.trim();
-        if (val) envPatch[def.envVar] = val;
+        const val = apiKeys[def.envVar]?.trim() ?? '';
+        if (val === MASK) {
+          // Unchanged — skip
+        } else if (val) {
+          // New or updated key
+          envPatch[def.envVar] = val;
+        } else if (configuredKeys.includes(def.envVar)) {
+          // User cleared a previously-configured key — send empty to remove it
+          envPatch[def.envVar] = '';
+        }
       }
       if (Object.keys(envPatch).length > 0) {
         const res = await fetch('/api/litellm/env', {
@@ -208,6 +224,17 @@ export function LiteLLMManager({ status, onBack, refresh }: Props) {
       }
 
       setSuccess(t('litellm.saveSuccess'));
+      // Refresh configured keys and reset masked values
+      fetch('/api/litellm/env')
+        .then((r) => r.json())
+        .then((d) => {
+          const keys: string[] = d.configured ?? [];
+          setConfiguredKeys(keys);
+          const masked: Record<string, string> = {};
+          for (const k of keys) masked[k] = '••••••••';
+          setApiKeys(masked);
+        })
+        .catch(() => {});
       refresh();
     } catch (err) {
       setError(String(err));
@@ -366,7 +393,7 @@ export function LiteLLMManager({ status, onBack, refresh }: Props) {
                 type="password"
                 value={apiKeys[envVar] || ''}
                 onChange={(e) => setApiKeys((prev) => ({ ...prev, [envVar]: e.target.value }))}
-                placeholder={configuredKeys.includes(envVar) ? '********' : 'sk-...'}
+                placeholder="sk-..."
                 className="w-full px-3 py-2 border rounded-lg text-sm"
               />
             </div>
