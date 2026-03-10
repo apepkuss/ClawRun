@@ -17,6 +17,9 @@ const APP_REQUIRED_ENVS: Record<string, () => Record<string, string>> = {
   openclaw: () => ({
     OPENCLAW_GATEWAY_TOKEN: randomBytes(32).toString('hex'),
   }),
+  litellm: () => ({
+    LITELLM_MASTER_KEY: randomBytes(32).toString('hex'),
+  }),
 };
 
 export async function installApp(

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+  namespace: {{ .Release.Namespace }}
+data:
+  config.yaml: |
+    # Initial empty config — ClawRun will patch this ConfigMap with
+    # the user's routing configuration after setup.
+    model_list: []
+    general_settings:
+      master_key: os.environ/PROXY_MASTER_KEY

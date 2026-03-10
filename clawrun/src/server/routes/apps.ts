@@ -1,6 +1,7 @@
 import { Router, Request } from 'express';
 import { installApp, uninstallApp, getOlaresUsername } from '../services/app-manager';
 import { setConnection as setOpenclawConnection, clearConfig as clearOpenclawConfig } from '../services/openclaw';
+import { saveLiteLLMConfig, clearLiteLLMConfig, getEndpoint as getLiteLLMEndpoint } from '../services/litellm';
 
 const router = Router();
 
@@ -41,6 +42,13 @@ router.post('/:name/install', async (req, res) => {
       console.log(`[install] auto-configured openclaw: endpoint=${ep}`);
     }
 
+    // Auto-configure LiteLLM connection after successful install
+    if (req.params.name === 'litellm' && generatedEnvs.LITELLM_MASTER_KEY) {
+      const ep = getLiteLLMEndpoint(username);
+      saveLiteLLMConfig({ endpoint: ep, masterKey: generatedEnvs.LITELLM_MASTER_KEY });
+      console.log(`[install] auto-configured litellm: endpoint=${ep}`);
+    }
+
     res.json(result);
   } catch (err) {
     console.error('[install] error:', String(err));
@@ -56,6 +64,10 @@ router.post('/:name/uninstall', async (req, res) => {
     if (appName === 'openclaw') {
       clearOpenclawConfig();
       console.log('[uninstall] cleared openclaw config and wizard state');
+    }
+    if (appName === 'litellm') {
+      clearLiteLLMConfig();
+      console.log('[uninstall] cleared litellm config');
     }
   }
 

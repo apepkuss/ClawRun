@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { checkHealth as openclawHealth, getConnection, autoConfigureToken, autoConfigureUiUrl as autoConfigureOpenclawUiUrl, getReplicaInfo, applyPendingConfigIfReady } from '../services/openclaw';
 import { checkStatus as ollamaStatus, getConnection as getOllamaConnection, autoConfigureUiUrl as autoConfigureOllamaUiUrl } from '../services/ollama';
+import { checkHealth as litellmHealth, getReplicaInfo as litellmReplicaInfo, getLiteLLMConfig, autoSyncMasterKey } from '../services/litellm';
 import { getAppManagerState } from '../services/k8s';
 import { getOlaresUsername } from '../services/app-manager';
 
@@ -22,11 +23,14 @@ function getOlaresBaseDomain(host: string | undefined): string | null {
 router.get('/', async (req, res) => {
   const username = getOlaresUsername();
   const baseDomain = getOlaresBaseDomain(req.headers.host);
-  const [openclawHealthy, ollamaHealthy, openclawInfo, openclawReplicas] = await Promise.all([
+  const [openclawHealthy, ollamaHealthy, litellmHealthy, openclawInfo, litellmInfo, openclawReplicas, litellmReplicas] = await Promise.all([
     openclawHealth(),
     ollamaStatus(),
+    litellmHealth(username),
     getAppManagerState('openclaw', username),
+    getAppManagerState('litellm', username),
     getReplicaInfo(username),
+    litellmReplicaInfo(username),
   ]);
 
   // Sync OpenClaw token from K8s deployment (verifies periodically).
@@ -55,6 +59,15 @@ router.get('/', async (req, res) => {
     autoConfigureOllamaUiUrl(baseDomain, ollamaConn.variant);
     ollamaConn = getOllamaConnection();
   }
+  // Sync LiteLLM master key from K8s deployment
+  const litellmReady = litellmInfo.state === 'running' ||
+    (litellmReplicas && litellmReplicas.desired > 0 && litellmReplicas.ready > 0);
+  if (litellmReady) {
+    await autoSyncMasterKey(username);
+  }
+
+  const litellmCfg = getLiteLLMConfig();
+
   res.json({
     openclaw: {
       healthy: openclawHealthy,
@@ -69,6 +82,13 @@ router.get('/', async (req, res) => {
       healthy: ollamaHealthy,
       endpoint: ollamaConn.endpoint || null,
       variant: ollamaConn.variant ?? null,
+    },
+    litellm: {
+      healthy: litellmHealthy,
+      endpoint: litellmCfg?.endpoint || null,
+      installState: litellmInfo.state,
+      installProgress: litellmInfo.progress,
+      replicas: litellmReplicas,
     },
   });
 });

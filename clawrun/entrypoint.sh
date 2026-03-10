@@ -14,4 +14,9 @@ iptables-legacy -t nat -I PREROUTING -p tcp --dport 3001 -j RETURN 2>/dev/null |
 iptables-legacy -t nat -I OUTPUT -p tcp --dport 18789 -j RETURN 2>/dev/null || \
   iptables -t nat -I OUTPUT -p tcp --dport 18789 -j RETURN 2>/dev/null || true
 
+# Bypass Envoy outbound proxy for LiteLLM (port 4000)
+# so health checks and config reads reach litellm-svc directly.
+iptables-legacy -t nat -I OUTPUT -p tcp --dport 4000 -j RETURN 2>/dev/null || \
+  iptables -t nat -I OUTPUT -p tcp --dport 4000 -j RETURN 2>/dev/null || true
+
 exec node dist/server/index.js

@@ -18,10 +18,11 @@ sed -i '' "s|image: \"${IMAGE}:.*\"|image: \"${IMAGE}:${VERSION}\"|" oac/templat
 sed -i '' "s/^  version: .*/  version: '${VERSION}'/" oac/OlaresManifest.yaml
 sed -i '' "s/^  versionName: .*/  versionName: '${VERSION}'/" oac/OlaresManifest.yaml
 
-# ── 3. Package bundled charts (OpenClaw + OllamaRun) ──
+# ── 3. Package bundled charts (OpenClaw + OllamaRun + LiteLLM) ──
 echo "==> Packaging bundled charts ..."
 helm package ../openclaw/ -d charts/
 helm package ../ollamarun/oac/ -d charts/
+helm package ../litellm/ -d charts/
 
 # ── 4. Build and push Docker image ──
 echo "==> Cleaning up old local images ..."

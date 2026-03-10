@@ -1,0 +1,6 @@
+apiVersion: v2
+name: litellm
+description: LiteLLM Smart Router - Intelligent LLM routing proxy on Olares
+type: application
+version: '0.1.0'
+appVersion: "v1.81.14-stable"

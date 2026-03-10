@@ -1,0 +1,133 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: litellm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: litellm
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: litellm
+    spec:
+      serviceAccountName: litellm-labeler
+      containers:
+        # -- Main container: LiteLLM proxy --
+        - name: litellm
+          image: "apepkuss/litellm:v1.81.14"
+          imagePullPolicy: IfNotPresent
+          # Wait for iptables-bypass sidecar to finish, then start proxy.
+          command:
+            - sh
+            - "-c"
+            - |
+              while [ ! -f /iptables-ready/done ]; do sleep 0.5; done
+              exec litellm --config /etc/litellm/config.yaml --port 4000
+          ports:
+            - containerPort: 4000
+              name: proxy
+          env:
+            - name: PROXY_MASTER_KEY
+              {{- if .Values.olaresEnv }}
+              value: "{{ .Values.olaresEnv.LITELLM_MASTER_KEY }}"
+              {{- end }}
+            # Provider API Keys (managed by ClawRun via K8s env patch)
+            - name: OPENAI_API_KEY
+              {{- if .Values.olaresEnv }}
+              value: "{{ .Values.olaresEnv.OPENAI_API_KEY }}"
+              {{- end }}
+            - name: ANTHROPIC_API_KEY
+              {{- if .Values.olaresEnv }}
+              value: "{{ .Values.olaresEnv.ANTHROPIC_API_KEY }}"
+              {{- end }}
+            - name: DEEPSEEK_API_KEY
+              {{- if .Values.olaresEnv }}
+              value: "{{ .Values.olaresEnv.DEEPSEEK_API_KEY }}"
+              {{- end }}
+            - name: GEMINI_API_KEY
+              {{- if .Values.olaresEnv }}
+              value: "{{ .Values.olaresEnv.GEMINI_API_KEY }}"
+              {{- end }}
+            - name: ZHIPUAI_API_KEY
+              {{- if .Values.olaresEnv }}
+              value: "{{ .Values.olaresEnv.ZHIPUAI_API_KEY }}"
+              {{- end }}
+            - name: MOONSHOT_API_KEY
+              {{- if .Values.olaresEnv }}
+              value: "{{ .Values.olaresEnv.MOONSHOT_API_KEY }}"
+              {{- end }}
+            - name: MINIMAX_API_KEY
+              {{- if .Values.olaresEnv }}
+              value: "{{ .Values.olaresEnv.MINIMAX_API_KEY }}"
+              {{- end }}
+          volumeMounts:
+            - name: litellm-config
+              mountPath: /etc/litellm/config.yaml
+              subPath: config.yaml
+            - name: iptables-ready
+              mountPath: /iptables-ready
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health/liveliness
+              port: 4000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+
+        # -- Sidecar: iptables bypass for Olares Envoy sidecar --
+        # Uses trusted image (beclab/) that OPA allows to run as root.
+        # - PREROUTING 4000: bypass inbound Envoy auth for proxy port
+        # - OUTPUT 11434: bypass outbound Envoy for Ollama connectivity
+        - name: iptables-bypass
+          image: "beclab/init:v1.2.3"
+          command:
+            - sh
+            - "-c"
+            - |
+              iptables-legacy -t nat -I PREROUTING -p tcp --dport 4000 -j RETURN 2>/dev/null || \
+                iptables -t nat -I PREROUTING -p tcp --dport 4000 -j RETURN 2>/dev/null || true
+              iptables-legacy -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || \
+                iptables -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || true
+              touch /iptables-ready/done
+              sleep infinity
+          securityContext:
+            runAsUser: 0
+            capabilities:
+              add: ["NET_ADMIN"]
+          volumeMounts:
+            - name: iptables-ready
+              mountPath: /iptables-ready
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 32Mi
+
+      volumes:
+        - name: iptables-ready
+          emptyDir: {}
+        - name: litellm-config
+          configMap:
+            name: litellm-config

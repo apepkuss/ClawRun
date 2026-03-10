@@ -393,6 +393,80 @@ export async function labelNamespace(
   });
 }
 
+/**
+ * Read a ConfigMap's data field.
+ */
+export async function getConfigMapData(
+  namespace: string,
+  configMapName: string,
+): Promise<Record<string, string> | null> {
+  if (!isInCluster()) return null;
+
+  const url = `${K8S_API}/api/v1/namespaces/${namespace}/configmaps/${configMapName}`;
+
+  return new Promise((resolve) => {
+    const cmd = `curl -s --cacert ${CA_PATH} -H "Authorization: Bearer $(cat ${TOKEN_PATH})" "${url}"`;
+    exec(cmd, { timeout: 10000 }, (err, stdout) => {
+      if (err) {
+        console.error('[k8s] failed to query ConfigMap:', err.message);
+        resolve(null);
+        return;
+      }
+      try {
+        const obj = JSON.parse(stdout);
+        if (obj.kind === 'Status') {
+          resolve(null);
+          return;
+        }
+        resolve(obj.data ?? {});
+      } catch {
+        console.error('[k8s] failed to parse ConfigMap response:', stdout.slice(0, 200));
+        resolve(null);
+      }
+    });
+  });
+}
+
+/**
+ * Patch a ConfigMap's data field via strategic merge patch.
+ */
+export async function patchConfigMapData(
+  namespace: string,
+  configMapName: string,
+  data: Record<string, string>,
+): Promise<boolean> {
+  if (!isInCluster()) return false;
+
+  const url = `${K8S_API}/api/v1/namespaces/${namespace}/configmaps/${configMapName}`;
+  const tmpFile = `/tmp/k8s-cm-patch-${Date.now()}.json`;
+  writeFileSync(tmpFile, JSON.stringify({ data }));
+
+  return new Promise((resolve) => {
+    const cmd = `curl -s --cacert ${CA_PATH} -H "Authorization: Bearer $(cat ${TOKEN_PATH})" -H "Content-Type: application/strategic-merge-patch+json" -X PATCH -d @${tmpFile} "${url}"`;
+    exec(cmd, { timeout: 15000 }, (err, stdout) => {
+      try { unlinkSync(tmpFile); } catch {}
+      if (err) {
+        console.error('[k8s] failed to patch ConfigMap:', err.message);
+        resolve(false);
+        return;
+      }
+      try {
+        const obj = JSON.parse(stdout);
+        if (obj.kind === 'ConfigMap') {
+          console.log(`[k8s] patched ConfigMap ${namespace}/${configMapName}`);
+          resolve(true);
+        } else {
+          console.error('[k8s] ConfigMap patch failed:', JSON.stringify(obj).slice(0, 300));
+          resolve(false);
+        }
+      } catch {
+        console.error('[k8s] failed to parse ConfigMap patch response:', stdout.slice(0, 200));
+        resolve(false);
+      }
+    });
+  });
+}
+
 export async function getAppManagerState(appName: string, username: string): Promise<AppManagerInfo> {
   if (!isInCluster()) return { state: null, progress: null };
 

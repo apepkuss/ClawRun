@@ -4,8 +4,9 @@ import { useLocale } from './locales';
 import { AppCard } from './components/AppCard';
 import { ConnectPanel } from './components/ConnectPanel';
 import { OpenClawManager } from './components/OpenClawManager';
+import { LiteLLMManager } from './components/LiteLLMManager';
 
-type View = 'dashboard' | 'settings' | 'openclaw-manager';
+type View = 'dashboard' | 'settings' | 'openclaw-manager' | 'litellm-manager';
 
 export default function App() {
   const { status, loading, refresh, setFastPoll } = useAppStatus();
@@ -18,6 +19,7 @@ export default function App() {
     if (!status || Object.keys(busyApps).length === 0) return;
     const installStateMap: Record<string, string | null> = {
       openclaw: status.openclaw.installState,
+      litellm: status.litellm.installState,
     };
     for (const appName of Object.keys(busyApps)) {
       const crdState = installStateMap[appName];
@@ -33,6 +35,7 @@ export default function App() {
     const inProgressStates = ['pending', 'downloading', 'installing', 'uninstalling', 'resuming', 'suspending', 'upgrading'];
     const anyInProgress =
       inProgressStates.includes(status.openclaw.installState ?? '') ||
+      inProgressStates.includes(status.litellm.installState ?? '') ||
       Object.keys(busyApps).length > 0;
     setFastPoll(anyInProgress);
   }, [status, busyApps]);
@@ -122,7 +125,7 @@ export default function App() {
       <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight">ClawRun</h1>
         <div className="flex items-center gap-3">
-          {view !== 'openclaw-manager' && (
+          {view !== 'openclaw-manager' && view !== 'litellm-manager' && (
             <div className="flex gap-1">
               <button
                 onClick={() => setView('dashboard')}
@@ -151,7 +154,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-8">
+      <main className="max-w-4xl mx-auto px-6 py-8">
         {view === 'dashboard' && (
           <div className="flex flex-col gap-6">
             <h2 className="text-base font-semibold text-gray-500 uppercase tracking-wide">
@@ -160,7 +163,7 @@ export default function App() {
             {loading ? (
               <p className="text-gray-400 text-sm">{t('common.loading')}</p>
             ) : (
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <AppCard
                   name="OpenClaw"
                   healthy={status?.openclaw.healthy ?? false}
@@ -174,6 +177,20 @@ export default function App() {
                   ]}
                   onOpen={() => setView('openclaw-manager')}
                   onUninstall={() => { void uninstall('openclaw'); }}
+                />
+                <AppCard
+                  name="LiteLLM"
+                  healthy={status?.litellm.healthy ?? false}
+                  endpoint={status?.litellm.endpoint ?? null}
+                  installState={status?.litellm.installState ?? null}
+                  installProgress={status?.litellm.installProgress ?? null}
+                  replicas={status?.litellm.replicas ?? null}
+                  busy={busyApps['litellm']}
+                  installOptions={[
+                    { label: t('common.install'), onClick: () => { void installApp('litellm'); } },
+                  ]}
+                  onOpen={() => setView('litellm-manager')}
+                  onUninstall={() => { void uninstall('litellm'); }}
                 />
               </div>
             )}
@@ -206,6 +223,14 @@ export default function App() {
 
         {view === 'openclaw-manager' && status && (
           <OpenClawManager
+            status={status}
+            onBack={() => setView('dashboard')}
+            refresh={refresh}
+          />
+        )}
+
+        {view === 'litellm-manager' && status && (
+          <LiteLLMManager
             status={status}
             onBack={() => setView('dashboard')}
             refresh={refresh}

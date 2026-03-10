@@ -22,4 +22,15 @@ entries:
     urls:
     - openclaw-0.1.0.tgz
     version: 0.1.0
-generated: "2026-03-05T23:56:13.822584+08:00"
+  litellm:
+  - apiVersion: v2
+    appVersion: v1.81.14
+    created: "2026-03-10T00:00:00.000000+08:00"
+    description: LiteLLM Smart Router - Intelligent LLM routing proxy on Olares
+    digest: 8ba7d0f9849af7e156d2b13ee880b2ff747b26a6e377d5ffb049a88cb9394238
+    name: litellm
+    type: application
+    urls:
+    - litellm-0.1.0.tgz
+    version: 0.1.0
+generated: "2026-03-10T00:00:00.000000+08:00"

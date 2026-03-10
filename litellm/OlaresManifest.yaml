@@ -1,0 +1,102 @@
+olaresManifest.version: '0.10.0'
+olaresManifest.type: app
+
+metadata:
+  name: litellm
+  description: Intelligent LLM routing proxy - routes simple tasks to cheap models, complex tasks to premium models
+  icon: https://file.bttcdn.com/appstore/default/defaulticon.webp
+  appid: litellm
+  version: '0.1.0'
+  title: LiteLLM Smart Router
+  categories:
+    - Productivity
+
+entrances:
+  - name: litellm-api
+    port: 4000
+    host: litellm-svc
+    title: LiteLLM
+    icon: https://file.bttcdn.com/appstore/default/defaulticon.webp
+    authLevel: private
+    openMethod: window
+
+permission:
+  appData: true
+  appCache: true
+
+spec:
+  versionName: '0.1.0'
+  fullDescription: |
+    LiteLLM Smart Router is an intelligent LLM routing proxy that automatically
+    routes requests to different models based on task complexity. Simple tasks go
+    to cheap/free models, complex tasks go to premium models. Supports 100+ LLM
+    providers including OpenAI, Anthropic, DeepSeek, Google, and local Ollama.
+  developer: BerriAI
+  submitter: ClawRun
+  locale:
+    - en-US
+    - zh-CN
+  requiredMemory: 256Mi
+  limitedMemory: 512Mi
+  requiredDisk: 64Mi
+  limitedDisk: 256Mi
+  requiredCpu: '0.1'
+  limitedCpu: '1'
+  supportArch:
+    - amd64
+    - arm64
+
+envs:
+  - envName: LITELLM_MASTER_KEY
+    type: password
+    required: true
+    editable: false
+    description: "LiteLLM proxy master key, generate with: openssl rand -hex 32"
+
+  - envName: OPENAI_API_KEY
+    type: password
+    required: false
+    editable: true
+    description: "OpenAI API Key (optional)"
+
+  - envName: ANTHROPIC_API_KEY
+    type: password
+    required: false
+    editable: true
+    description: "Anthropic Claude API Key (optional)"
+
+  - envName: DEEPSEEK_API_KEY
+    type: password
+    required: false
+    editable: true
+    description: "DeepSeek API Key (optional)"
+
+  - envName: GEMINI_API_KEY
+    type: password
+    required: false
+    editable: true
+    description: "Google Gemini API Key (optional)"
+
+  - envName: ZHIPUAI_API_KEY
+    type: password
+    required: false
+    editable: true
+    description: "Zhipu (智谱) API Key (optional)"
+
+  - envName: MOONSHOT_API_KEY
+    type: password
+    required: false
+    editable: true
+    description: "Moonshot (Kimi) API Key (optional)"
+
+  - envName: MINIMAX_API_KEY
+    type: password
+    required: false
+    editable: true
+    description: "MiniMax API Key (optional)"
+
+options:
+  dependencies:
+    - name: olares
+      type: system
+      version: '>=1.10.1-0'
