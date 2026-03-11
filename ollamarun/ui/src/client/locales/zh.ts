@@ -35,6 +35,29 @@ const zh: Record<string, string> = {
   'pull.incomplete': '拉取未完成',
   'pull.serverError': '服务端错误',
 
+  // Model parameters
+  'params.settings': '设置',
+  'params.title': '模型参数',
+  'params.loading': '加载参数中…',
+  'params.loadFailed': '加载参数失败',
+  'params.num_ctx': '上下文窗口 (num_ctx)',
+  'params.num_ctx.hint': '模型能处理的最大 token 数。默认通常为 2048 或 4096。值越大占用内存越多。',
+  'params.num_gpu': 'GPU 层数 (num_gpu)',
+  'params.num_gpu.hint': '卸载到 GPU 的层数。0 = 仅使用 CPU。',
+  'params.temperature': '温度 (Temperature)',
+  'params.temperature.hint': '控制随机性。越低越确定，越高越有创意。默认：0.8',
+  'params.top_p': 'Top P',
+  'params.top_p.hint': '核采样阈值。默认：0.9',
+  'params.top_k': 'Top K',
+  'params.top_k.hint': '限制 token 选择范围为前 K 个候选。默认：40',
+  'params.repeat_penalty': '重复惩罚 (Repeat Penalty)',
+  'params.repeat_penalty.hint': '惩罚重复 token。默认：1.1',
+  'params.save': '保存',
+  'params.saving': '保存中…',
+  'params.saved': '{{name}} 参数已保存',
+  'params.saveFailed': '保存参数失败：{{error}}',
+  'params.notSet': '未设置',
+
   // Offline
   'offline.waiting': 'Ollama 离线，等待服务启动…',
 };

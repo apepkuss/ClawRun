@@ -15,6 +15,12 @@ interface ModelTag {
   size: string;
 }
 
+interface ModelParamsData {
+  params: Record<string, string>;
+}
+
+const PARAM_KEYS = ['num_ctx', 'num_gpu', 'temperature', 'top_p', 'top_k', 'repeat_penalty'] as const;
+
 interface Props {
   healthy: boolean;
 }
@@ -40,6 +46,10 @@ export function OllamaPanel({ healthy }: Props) {
   const [message, setMessage] = useState('');
   const [messageOk, setMessageOk] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [expandedModel, setExpandedModel] = useState<string | null>(null);
+  const [paramsLoading, setParamsLoading] = useState(false);
+  const [paramsSaving, setParamsSaving] = useState(false);
+  const [editParams, setEditParams] = useState<Record<string, string>>({});
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
   const modelRef = useRef<HTMLDivElement>(null);
@@ -106,6 +116,49 @@ export function OllamaPanel({ healthy }: Props) {
     setSelectedTag('');
     setModelDropdownOpen(false);
     setTagDropdownOpen(false);
+  }
+
+  async function toggleParams(name: string) {
+    if (expandedModel === name) {
+      setExpandedModel(null);
+      return;
+    }
+    setExpandedModel(name);
+    setParamsLoading(true);
+    setEditParams({});
+    try {
+      const res = await fetch(`/api/ollama/models/${encodeURIComponent(name)}/params`);
+      if (!res.ok) throw new Error();
+      const data = (await res.json()) as ModelParamsData;
+      setEditParams(data.params ?? {});
+    } catch {
+      setMessage(t('params.loadFailed')); setMessageOk(false);
+      setExpandedModel(null);
+    } finally {
+      setParamsLoading(false);
+    }
+  }
+
+  async function handleSaveParams(name: string) {
+    setParamsSaving(true);
+    setMessage('');
+    try {
+      const res = await fetch(`/api/ollama/models/${encodeURIComponent(name)}/params`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ params: editParams }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(data.error || 'unknown error');
+      }
+      setMessage(t('params.saved', { name })); setMessageOk(true);
+      setExpandedModel(null);
+    } catch (e) {
+      setMessage(t('params.saveFailed', { error: e instanceof Error ? e.message : 'unknown' })); setMessageOk(false);
+    } finally {
+      setParamsSaving(false);
+    }
   }
 
   async function handleDelete(name: string) {
@@ -196,18 +249,65 @@ export function OllamaPanel({ healthy }: Props) {
       ) : (
         <ul className="text-sm space-y-1">
           {models.map((m) => (
-            <li key={m.name} className="flex items-center justify-between text-gray-600">
-              <span>{m.name}</span>
-              <span className="flex items-center gap-2">
-                <span className="text-gray-400">{(m.size / 1e9).toFixed(1)} GB</span>
-                <button
-                  onClick={() => void handleDelete(m.name)}
-                  className="text-red-400 hover:text-red-600 text-xs"
-                  title={t('models.deleteTitle')}
-                >
-                  {t('models.delete')}
-                </button>
-              </span>
+            <li key={m.name}>
+              <div className="flex items-center justify-between text-gray-600">
+                <span>{m.name}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-gray-400">{(m.size / 1e9).toFixed(1)} GB</span>
+                  <button
+                    onClick={() => void toggleParams(m.name)}
+                    className={`text-xs ${expandedModel === m.name ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600'}`}
+                    title={t('params.settings')}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => void handleDelete(m.name)}
+                    className="text-red-400 hover:text-red-600 text-xs"
+                    title={t('models.deleteTitle')}
+                  >
+                    {t('models.delete')}
+                  </button>
+                </span>
+              </div>
+              {expandedModel === m.name && (
+                <div className="mt-2 mb-2 ml-2 p-3 bg-gray-50 rounded-lg border text-xs">
+                  {paramsLoading ? (
+                    <p className="text-gray-400">{t('params.loading')}</p>
+                  ) : (
+                    <>
+                      <p className="font-medium text-gray-600 mb-2">{t('params.title')}</p>
+                      <div className="space-y-2">
+                        {PARAM_KEYS.map((key) => (
+                          <div key={key}>
+                            <label className="flex items-center gap-1 text-gray-600 mb-0.5">
+                              <span>{t(`params.${key}`)}</span>
+                            </label>
+                            <input
+                              type="text"
+                              placeholder={t('params.notSet')}
+                              value={editParams[key] ?? ''}
+                              onChange={(e) => setEditParams((prev) => ({ ...prev, [key]: e.target.value }))}
+                              className="w-full border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
+                            />
+                            <p className="text-gray-400 mt-0.5">{t(`params.${key}.hint`)}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => void handleSaveParams(m.name)}
+                        disabled={paramsSaving}
+                        className="mt-3 px-4 py-1.5 rounded bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {paramsSaving ? t('params.saving') : t('params.save')}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>

@@ -167,6 +167,100 @@ export function startPull(name: string): void {
   });
 }
 
+// --- Model info & parameters ---
+
+/** Common Ollama model parameters that users may want to configure. */
+const EDITABLE_PARAMS = ['num_ctx', 'num_gpu', 'temperature', 'top_p', 'top_k', 'repeat_penalty'] as const;
+
+export interface ModelParams {
+  /** Raw parameter string from Ollama (key value pairs, one per line) */
+  raw: string;
+  /** Parsed editable parameters */
+  params: Record<string, string>;
+  /** The model's template (needed to reconstruct Modelfile) */
+  template: string;
+  /** The model's system prompt */
+  system: string;
+}
+
+export async function showModel(name: string): Promise<ModelParams> {
+  const { ok, body } = await httpReq(`${OLLAMA_BASE}/api/show`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+  if (!ok) throw new Error(`Ollama show failed: ${body.slice(0, 300)}`);
+
+  let data: { parameters?: string; template?: string; system?: string };
+  try {
+    data = JSON.parse(body);
+  } catch {
+    throw new Error(`Ollama show: invalid JSON: ${body.slice(0, 300)}`);
+  }
+
+  const raw = data.parameters ?? '';
+  const params: Record<string, string> = {};
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const spaceIdx = trimmed.indexOf(' ');
+    if (spaceIdx === -1) continue;
+    const key = trimmed.slice(0, spaceIdx).trim();
+    const value = trimmed.slice(spaceIdx + 1).trim();
+    if ((EDITABLE_PARAMS as readonly string[]).includes(key)) {
+      params[key] = value;
+    }
+  }
+
+  return {
+    raw,
+    params,
+    template: data.template ?? '',
+    system: data.system ?? '',
+  };
+}
+
+export async function updateModelParams(
+  name: string,
+  params: Record<string, string>,
+): Promise<void> {
+  // Build structured request for Ollama /api/create (new API format)
+  // Uses "from" to inherit from existing model, with parameter overrides
+  const numericKeys = new Set(['num_ctx', 'num_gpu', 'top_k']);
+  const floatKeys = new Set(['temperature', 'top_p', 'repeat_penalty']);
+
+  const parsedParams: Record<string, number> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (!(EDITABLE_PARAMS as readonly string[]).includes(key)) continue;
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    if (numericKeys.has(key)) {
+      parsedParams[key] = parseInt(trimmed, 10);
+    } else if (floatKeys.has(key)) {
+      parsedParams[key] = parseFloat(trimmed);
+    }
+  }
+
+  const reqBody = {
+    model: name,
+    from: name,
+    ...(Object.keys(parsedParams).length > 0 ? { parameters: parsedParams } : {}),
+  };
+
+  const { ok, body } = await httpReq(`${OLLAMA_BASE}/api/create`, {
+    method: 'POST',
+    body: JSON.stringify(reqBody),
+    timeout: 120000,
+  });
+  if (!ok) throw new Error(`Ollama create failed: ${body.slice(0, 300)}`);
+
+  // Unload the model from memory so it reloads with new parameters.
+  // Without this, OLLAMA_KEEP_ALIVE keeps the old params in memory.
+  await httpReq(`${OLLAMA_BASE}/api/generate`, {
+    method: 'POST',
+    body: JSON.stringify({ model: name, keep_alive: 0 }),
+  });
+}
+
 // --- Ollama library (remote model catalog) ---
 
 let libraryCache: { models: string[]; ts: number } | null = null;

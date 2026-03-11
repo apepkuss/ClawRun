@@ -35,6 +35,29 @@ const en: Record<string, string> = {
   'pull.incomplete': 'Pull incomplete',
   'pull.serverError': 'Server error',
 
+  // Model parameters
+  'params.settings': 'Settings',
+  'params.title': 'Model Parameters',
+  'params.loading': 'Loading parameters…',
+  'params.loadFailed': 'Failed to load parameters',
+  'params.num_ctx': 'Context Window (num_ctx)',
+  'params.num_ctx.hint': 'Maximum number of tokens the model can process. Default is usually 2048 or 4096. Larger values use more memory.',
+  'params.num_gpu': 'GPU Layers (num_gpu)',
+  'params.num_gpu.hint': 'Number of layers to offload to GPU. 0 = CPU only.',
+  'params.temperature': 'Temperature',
+  'params.temperature.hint': 'Controls randomness. Lower = more deterministic, higher = more creative. Default: 0.8',
+  'params.top_p': 'Top P',
+  'params.top_p.hint': 'Nucleus sampling threshold. Default: 0.9',
+  'params.top_k': 'Top K',
+  'params.top_k.hint': 'Limits token selection to top K candidates. Default: 40',
+  'params.repeat_penalty': 'Repeat Penalty',
+  'params.repeat_penalty.hint': 'Penalizes repeated tokens. Default: 1.1',
+  'params.save': 'Save',
+  'params.saving': 'Saving…',
+  'params.saved': 'Parameters saved for {{name}}',
+  'params.saveFailed': 'Failed to save parameters: {{error}}',
+  'params.notSet': 'not set',
+
   // Offline
   'offline.waiting': 'Ollama is offline, waiting for service to start…',
 };

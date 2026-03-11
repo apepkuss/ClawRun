@@ -46,6 +46,31 @@ router.get('/models/pull/status', (req, res) => {
   res.json({ active: true, ...status });
 });
 
+// GET /api/ollama/models/:name/params
+router.get('/models/:name/params', async (req, res) => {
+  try {
+    const info = await ollama.showModel(req.params.name);
+    res.json(info);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// PUT /api/ollama/models/:name/params   body: { params: Record<string, string> }
+router.put('/models/:name/params', async (req, res) => {
+  try {
+    const params = req.body?.params;
+    if (!params || typeof params !== 'object') {
+      res.status(400).json({ error: 'params object is required' });
+      return;
+    }
+    await ollama.updateModelParams(req.params.name, params);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // GET /api/ollama/library
 router.get('/library', async (_req, res) => {
   try {
