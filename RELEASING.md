@@ -58,23 +58,13 @@ The script:
 
 ## Bundled Charts
 
-OpenClaw and OllamaRun charts are **not** released separately. They are:
+OpenClaw, OllamaRun, and LiteLLM charts are **not** released separately. They are:
 
 - Packaged as tgz files in `clawrun/charts/` (baked into the Docker image at build time)
 - Served by ClawRun's built-in chart server on port 3001
 - Downloaded by Olares app-service during install
 
-To update bundled charts:
-
-```bash
-# OpenClaw
-helm package openclaw/ -d clawrun/charts/
-# Update digest in clawrun/charts/static-index.yaml
-
-# OllamaRun
-helm package ollamarun/oac/ -d clawrun/charts/
-# Update digest in clawrun/charts/static-index.yaml
-```
+CI automatically packages bundled charts and rebuilds `static-index.yaml` during the build step. No manual updates needed.
 
 Changes take effect on next ClawRun image build.
 

@@ -40,6 +40,7 @@ jobs:
         run: |
           helm package openclaw/ -d clawrun/charts/
           helm package ollamarun/oac/ -d clawrun/charts/
+          helm package litellm/ -d clawrun/charts/
 
       - name: Extract platform slug
         id: slug
