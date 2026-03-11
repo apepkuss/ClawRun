@@ -94,6 +94,7 @@ spec:
         # Uses trusted image (beclab/) that OPA allows to run as root.
         # - PREROUTING 18789: bypass inbound Envoy auth for gateway port
         # - OUTPUT 11434: bypass outbound Envoy for Ollama connectivity
+        # - OUTPUT 443: bypass outbound Envoy for external LLM APIs (ZhipuAI, OpenAI, Anthropic, etc.)
         - name: iptables-bypass
           image: "beclab/init:v1.2.3"
           command:
@@ -104,6 +105,8 @@ spec:
                 iptables -t nat -I PREROUTING -p tcp --dport 18789 -j RETURN 2>/dev/null || true
               iptables-legacy -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || \
                 iptables -t nat -I OUTPUT -p tcp --dport 11434 -j RETURN 2>/dev/null || true
+              iptables-legacy -t nat -I OUTPUT -p tcp --dport 443 -j RETURN 2>/dev/null || \
+                iptables -t nat -I OUTPUT -p tcp --dport 443 -j RETURN 2>/dev/null || true
               touch /iptables-ready/done
               sleep infinity
           securityContext:
