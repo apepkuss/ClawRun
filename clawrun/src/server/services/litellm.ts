@@ -258,10 +258,11 @@ export function buildProxyConfigYaml(
 
     if (modelId.startsWith('ollama/')) {
       const base = ollamaEndpoint || 'http://localhost:11434';
+      const ollamaModel = modelId.replace('ollama/', '');
       modelList.push(
         `  - model_name: ${modelId}\n` +
         `    litellm_params:\n` +
-        `      model: ${modelId}\n` +
+        `      model: ollama_chat/${ollamaModel}\n` +
         `      api_base: ${base}`,
       );
     } else if (modelId.startsWith('openai/')) {
@@ -301,7 +302,7 @@ export function buildProxyConfigYaml(
       modelList.push(
         `  - model_name: ${modelId}\n` +
         `    litellm_params:\n` +
-        `      model: zhipuai/${name}\n` +
+        `      model: zai/${name}\n` +
         `      api_key: os.environ/ZHIPUAI_API_KEY`,
       );
     } else if (modelId.startsWith('moonshot/')) {
@@ -355,6 +356,9 @@ export function buildProxyConfigYaml(
   return (
     `model_list:\n` +
     `${allModels}\n` +
+    `\n` +
+    `litellm_settings:\n` +
+    `  drop_params: true\n` +
     `\n` +
     `general_settings:\n` +
     `  master_key: os.environ/PROXY_MASTER_KEY\n`

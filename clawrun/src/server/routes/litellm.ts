@@ -138,7 +138,11 @@ router.post('/connect-openclaw', async (_req, res) => {
     },
     {
       key: 'agents.defaults.model',
-      value: '"smart-router"',
+      value: '"litellm/smart-router"',
+    },
+    {
+      key: 'plugins.allow',
+      value: '[]',
     },
   ];
 
